@@ -1,0 +1,56 @@
+name: Issue Tracker Setup
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  issue-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label issues based on content
+        uses: actions-cool/issues-helper@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          update-type: create
+          issue-type: all
+
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-cool/stale@v2
+        with:
+          # Issue and PR config
+          stale-pr-message: "This PR has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs."
+          stale-pr-inactive-days: 90
+          exempt-pr-labels: "priority: critical, type: security"
+          close-pr-message: "Closing due to inactivity. Please reopen if you'd like to continue work on this PR."
+          close-pr-label: "status: closed"
+          mark-as-stale-pr: true
+          # Issue config
+          stale-issue-message: "This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs."
+          stale-issue-inactive-days: 30
+          exempt-issue-labels: "priority: critical, type: security"
+          close-issue-message: "Closing due to inactivity. Please reopen with more details if needed."
+          mark-as-stale-issue: true
+
+  welcome:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-cool/welcome@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          welcome-issue-comment: |
+            Hi there!
+
+            Thank you for opening your first issue in Vajra :wave:
+
+            We're excited to have you here! Our team will review your issue shortly. In the meantime:
+
+            - Check out [docs/setup.md](https://github.com/Ritiksuman07/Vajra/blob/main/docs/setup.md) for getting started
+            - Look at existing issues with `good first issue` label if you want to contribute
+            - Join our community [Discord](https://discord.gg/vajra) for real-time help
+
+            Thanks again for being part of the Vajra community!
