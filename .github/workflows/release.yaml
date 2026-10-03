@@ -1,0 +1,151 @@
+# Vajra — Automated Release Pipeline
+# Runs on git push to main with a release tag (e.g., v1.0.0)
+# Builds: Windows (Inno Setup / NSIS), Linux (AppImage + DEB + RPM), macOS (DMG)
+
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        default: '1.0.0'
+
+env:
+  APP_NAME: vajra
+  VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+jobs:
+  # Job 1: Build Go service + binaries
+  build-service:
+    name: Build Service
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Linux Service
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd service && go build -ldflags="-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra-service ./cmd/vajra/
+          cd cli && go build -ldflags="-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra .
+          cd ..
+          go build -o dist/vajra-service ./service/cmd/vajra/
+          go build -o dist/vajra ./cli
+
+      - name: Build Windows Service
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd service && go build -ldflags "-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra-service.exe ./cmd/vajra/
+          cd cli && go build -ldflags "-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra.exe .
+
+      - name: Build macOS Service
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd service && CGO_ENABLED=0 GOOS=darwin go build -ldflags="-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra-service ./cmd/vajra/
+          cd cli && CGO_ENABLED=0 GOOS=darwin go build -ldflags="-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra .
+
+      - name: Upload Service Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-binaries-${{ matrix.os }}
+          path: dist/
+
+  # Job 2: Build Windows Installer
+  windows-installer:
+    name: Build Windows Installer
+    needs: build-service
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Service Binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: service-binaries-windows-latest
+          path: dist/
+
+      - name: Build Windows Installer
+        uses: jarmosko/action-inno-setup@v1
+        with:
+          script: packaging/windows/vajra.iss
+
+      - name: Upload Windows Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: vajra-windows-installer
+          path: dist/releases/*.exe
+          retention-days: 90
+
+  # Job 3: Build Linux AppImage + DEB + RPM
+  linux-package:
+    name: Build Linux Packages
+    needs: build-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install Linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y appimagetool fpm
+
+      - name: Build
+        run: |
+          cd service && go build -ldflags="-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra-service ./cmd/vajra/
+          cd cli && go build -ldflags="-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra .
+          chmod +x scripts/build-linux.sh
+          bash scripts/build-linux.sh
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vajra-linux-packages
+          path: dist/vajra-*.AppImage, dist/vajra-*.deb, dist/vajra-*.rpm
+          retention-days: 90
+
+  # Job 4: Create GitHub Release
+  create-release:
+    name: Create Release
+    needs: [windows-installer, linux-package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      deployments: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Generate checksums
+        run: |
+          sha256sum dist/vajra-windows-installer/*.exe dist/vajra-linux-packages/* > dist/checksums.sha256
+          cat dist/checksums.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/vajra-windows-installer/*.exe
+            dist/vajra-linux-packages/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -1,0 +1,119 @@
+{
+  "project": "vajra",
+  "version": "1.0.0",
+  "description": "Local-first AI agent team with multi-agent orchestration and 4-layer anti-hallucination verification",
+  "license": "MIT",
+  "repository": "https://github.com/Ritiksuman07/Vajra",
+
+  "platforms": {
+    "windows": {
+      "primary": {
+        "name": "Inno Setup",
+        "file": "dist/releases/VajraSetup-1.0.0-win-x64.exe",
+        "size": "~400-700 MB",
+        "script": "packaging/windows/vajra.iss",
+        "tool": "ISCC packaging/windows/vajra.iss",
+        "components": [
+          "vajra.exe (Go CLI + TUI)",
+          "vajra-service.exe (Go background service)",
+          "ollama (bundled local LLM runtime)",
+          "embedded Python runtime",
+          "agent pods + MCP servers",
+          "desktop shortcut",
+          "optional: llama3.1:8b model (4.7 GB)"
+        ],
+        "features": {
+          "silent_install": true,
+          "service_install": true,
+          "desktop_icon": true,
+          "autostart": true,
+          "uninstall": true
+        }
+      },
+      "fallback": {
+        "name": "NSIS",
+        "file": "dist/vajra-1.0.0-windows-x64.exe",
+        "script": "packaging/windows/vajra.nsi",
+        "tool": "makensis packaging/windows/vajra.nsi"
+      }
+    },
+    "linux": {
+      "primary": {
+        "name": "AppImage",
+        "file": "dist/vajra-1.0.0-x86_64.AppImage",
+        "size": "~100-200 MB",
+        "builder": "scripts/build-linux.sh",
+        "tool": "appimagetool",
+        "features": {
+          "portable": true,
+          "no_install": true,
+          "x86_64_arm64": true
+        }
+      },
+      "secondary": {
+        "name": "DEB / RPM",
+        "files": ["dist/vajra-1.0.0_amd64.deb", "dist/vajra-1.0.0-1.x86_64.rpm"],
+        "builder": "scripts/build-linux.sh",
+        "tool": "fpm",
+        "features": {
+          "systemd": true,
+          "desktop_entry": true,
+          "autostart": true
+        }
+      },
+      "tertiary": {
+        "name": "One-liner",
+        "url": "https://vajra.ai/install",
+        "script": "scripts/install.sh",
+        "features": {
+          "curl_pip": true,
+          "ollama_check": true,
+          "model_prompt": true
+        }
+      }
+    },
+    "macos": {
+      "primary": {
+        "name": "DMG",
+        "file": "dist/vajra-1.0.0-arm64.dmg",
+        "tool": "create-dmg",
+        "arch": ["x86_64", "arm64"]
+      }
+    }
+  },
+
+  "build_dependencies": {
+    "windows": {
+      "go": "1.22+",
+      "python": "3.11+",
+      "inno_setup": "6.x",
+      "makensis": "3.x"
+    },
+    "linux": {
+      "go": "1.22+",
+      "python": "3.11+",
+      "appimagetool": "2.x",
+      "fpm": "1.x"
+    },
+    "macos": {
+      "go": "1.22+",
+      "python": "3.11+",
+      "create-dmg": "latest",
+      "codesign": "Apple Developer"
+    }
+  },
+
+  "distribution": {
+    "release_page": "https://github.com/Ritiksuman07/Vajra/releases/tag/v1.0.0",
+    "checksums": "sha256sum.txt",
+    "gpg_sign": true
+  },
+
+  "artifacts": {
+    "windows_x64": ["VajraSetup-1.0.0-win-x64.exe", "VajraSetup-1.0.0-win-x64.exe.sha256"],
+    "linux_amd64": ["vajra-1.0.0-x86_64.AppImage", "vajra-1.0.0_amd64.deb"],
+    "linux_arm64": ["vajra-1.0.0-arm64.AppImage"],
+    "macos_arm64": ["vajra-1.0.0-arm64.dmg"],
+    "source": ["vajra-1.0.0.tar.gz"]
+  }
+}

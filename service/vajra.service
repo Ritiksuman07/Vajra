@@ -1,0 +1,19 @@
+[Unit]
+Description=Vajra - Local-first AI agent team
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/vajra/vajra-service --standalone
+WorkingDirectory=/opt/vajra
+Environment=VAJRA_SERVICE_PORT=4096
+Environment=VAJRA_DATA_DIR=/opt/vajra/data
+Environment=VAJRA_CONFIG_DIR=/opt/vajra/config
+Restart=always
+RestartSec=5
+User=vajra
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,191 @@
+# Vajra — Local-First AI Agent Platform
+# Docker Compose for development and production
+
+version: "3.8"
+
+services:
+  # Background service (Go)
+  vajra-service:
+    build:
+      context: .
+      dockerfile: service/Dockerfile
+    container_name: vajra-service
+    ports:
+      - "4096:4096"
+    volumes:
+      - ./data:/data
+      - ./config:/config
+      - vajra-logs:/logs
+    environment:
+      - VAJRA_SERVICE_PORT=4096
+      - VAJRA_DATA_DIR=/data
+      - VAJRA_CONFIG_DIR=/config
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
+  # Agent Pod 1 — Chief of Staff
+  vajra-chief:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: vajra-chief
+    volumes:
+      - ./data/workspace/chief:/workspace
+      - ./config:/config
+    environment:
+      - VAJRA_MODEL=llama3.1:70b
+      - VAJRA_OLLAMA_HOST=http://ollama:11434
+      - VAJRA_WORKSPACE=/workspace
+      - VAJRA_ROLE=chief
+      - VAJRA_SANDBOX=true
+    networks:
+      - vajra-internal
+      - vajra-mcp
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
+  # Agent Pod 2 — Coder
+  vajra-coder:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: vajra-coder
+    volumes:
+      - ./data/workspace/coder:/workspace
+    environment:
+      - VAJRA_MODEL=deepseek-coder-v2
+      - VAJRA_OLLAMA_HOST=http://ollama:11434
+      - VAJRA_WORKSPACE=/workspace
+      - VAJRA_ROLE=coder
+      - VAJRA_SANDBOX=true
+    networks:
+      - vajra-internal
+      - vajra-mcp
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
+  # Agent Pod 3 — Researcher
+  vajra-researcher:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: vajra-researcher
+    volumes:
+      - ./data/workspace/researcher:/workspace
+    environment:
+      - VAJRA_MODEL=llama3.1:8b
+      - VAJRA_OLLAMA_HOST=http://ollama:11434
+      - VAJRA_WORKSPACE=/workspace
+      - VAJRA_ROLE=researcher
+    networks:
+      - vajra-internal
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
+  # Agent Pod 4 — Executor
+  vajra-executor:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: vajra-executor
+    volumes:
+      - ./data/workspace/executor:/workspace
+    environment:
+      - VAJRA_MODEL=phi-3.5-mini
+      - VAJRA_OLLAMA_HOST=http://ollama:11434
+      - VAJRA_WORKSPACE=/workspace
+      - VAJRA_ROLE=executor
+      - VAJRA_SANDBOX=true
+    networks:
+      - vajra-internal
+      - vajra-mcp
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
+  # Agent Pod 5 — Reviewer
+  vajra-reviewer:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: vajra-reviewer
+    volumes:
+      - ./data/workspace/reviewer:/workspace
+    environment:
+      - VAJRA_MODEL=llama3.1:8b
+      - VAJRA_OLLAMA_HOST=http://ollama:11434
+      - VAJRA_WORKSPACE=/workspace
+      - VAJRA_ROLE=reviewer
+    networks:
+      - vajra-internal
+    restart: unless-stopped
+    depends_on:
+      - ollama
+
+  # Ollama — Local LLM backend
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vajra-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+      - ./config/models.yaml:/etc/ollama/models.yaml
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=2
+    restart: unless-stopped
+    networks:
+      - vajra-internal
+
+  # Neo4j — Knowledge graph (optional, for anti-hallucination grounding)
+  neo4j:
+    image: neo4j:5-community
+    container_name: vajra-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/vajra-neo4j
+      - NEO4J_dbms_memory_heap_max__size=512m
+    restart: unless-stopped
+    networks:
+      - vajra-internal
+
+  # Web UI (Flask)
+  vajra-web:
+    build:
+      context: .
+      dockerfile: ui/web/Dockerfile
+    container_name: vajra-web
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./ui/web/templates:/app/templates
+      - ./data:/app/data
+    environment:
+      - VAJRA_API_URL=http://vajra-service:4096
+    restart: unless-stopped
+    depends_on:
+      - vajra-service
+    networks:
+      - vajra-internal
+
+# Volumes
+volumes:
+  ollama-data:
+  neo4j-data:
+  vajra-logs:
+
+# Networks
+networks:
+  vajra-internal:
+    driver: bridge
+  vajra-mcp:
+    driver: bridge

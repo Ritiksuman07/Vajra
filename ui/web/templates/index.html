@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vajra — Local-First AI Agent Team</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-left">
+        <h1>Vajra</h1>
+        <span class="version">v1.0.0</span>
+      </div>
+      <nav class="nav">
+        <a href="/" class="active">Dashboard</a>
+        <a href="/agents">Agents</a>
+        <a href="/chat">Chat</a>
+        <a href="/connect">Providers</a>
+        <a href="/verification">Verification</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      <section class="hero">
+        <h2>Local-First AI Agent Team</h2>
+        <p>Multi-agent orchestration with 4-layer anti-hallucination verification.
+           Zero cloud calls by default — your data stays on your machine.</p>
+      </section>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="agents-count">0</div>
+          <div class="stat-label">Active Agents</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="tasks-count">0</div>
+          <div class="stat-label">Tasks Completed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="verification-rate">—</div>
+          <div class="stat-label">Verification Rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="uptime">—</div>
+          <div class="stat-label">Uptime</div>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <button class="btn btn-primary" onclick="runTask()">Run a Task</button>
+        <button class="btn" onclick="spawnTeam()">Spawn Agent Team</button>
+        <button class="btn" onclick="listModels()">Check Models</button>
+      </div>
+
+      <section class="task-input">
+        <label for="task-desc">Task Description</label>
+        <textarea id="task-desc" rows="4" placeholder="Describe a task for your agents..."></textarea>
+        <div class="task-actions">
+          <button class="btn btn-primary" onclick="executeTask()">Execute</button>
+          <span class="task-hint">Ctrl+Enter to run</span>
+        </div>
+      </section>
+
+      <section class="output">
+        <h3>Output</h3>
+        <pre id="output-panel">Ready. Enter a task above to begin.</pre>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Vajra v1.0.0 — Local-First | No telemetry | No cloud by default</span>
+    </footer>
+  </div>
+
+  <script>
+    const API = '/api';
+
+    function setStatus(msg, type = 'info') {
+      const el = document.getElementById('status-msg');
+      if (!el) return;
+      el.textContent = msg;
+      el.className = `status-msg ${type}`;
+      setTimeout(() => el.remove(), 5000);
+    }
+
+    async function runTask() {
+      const desc = document.getElementById('task-desc').value.trim();
+      if (!desc) {
+        alert('Please enter a task description');
+        return;
+      }
+      executeTask();
+    }
+
+    async function executeTask() {
+      const desc = document.getElementById('task-desc').value.trim();
+      if (!desc) return;
+
+      const out = document.getElementById('output-panel');
+      out.textContent = '⏳ Executing task: ' + desc + '\n';
+      out.classList.add('running');
+
+      try {
+        const resp = await fetch(API + '/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: desc }),
+        });
+        const data = await resp.json();
+        out.textContent += '✅ Status: ' + data.status + '\n';
+        out.textContent += data.message || 'Task submitted';
+        out.classList.remove('running');
+        out.classList.add('success');
+      } catch (e) {
+        out.textContent += '❌ Error: ' + e.message;
+        out.classList.remove('running');
+        out.classList.add('error');
+      }
+    }
+
+    async function spawnTeam() {
+      const out = document.getElementById('output-panel');
+      out.textContent = '⏳ Spawning agent team...';
+      try {
+        const resp = await fetch(API + '/agents/spawn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ size: 5 }),
+        });
+        const data = await resp.json();
+        out.textContent = '✅ Team spawned: ' + (data.pods || []).map(p => p.role).join(', ');
+      } catch (e) {
+        out.textContent = '❌ Error: ' + e.message;
+      }
+    }
+
+    async function listModels() {
+      const out = document.getElementById('output-panel');
+      out.textContent = '⏳ Loading models...';
+      try {
+        const resp = await fetch(API + '/models');
+        const data = await resp.json();
+        const models = (data.models || [])
+          .map(m => `  • ${m.name} (${m.backend}) — ${m.size}`)
+          .join('\n');
+        out.textContent = 'Available models:\n' + models;
+      } catch (e) {
+        out.textContent = '❌ Error: ' + e.message;
+      }
+    }
+
+    document.getElementById('task-desc').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        executeTask();
+      }
+    });
+  </script>
+</body>
+</html>

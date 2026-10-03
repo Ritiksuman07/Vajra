@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vajra-bot"
+version = "1.0.0"
+description = "Local-first open-source vajra Bot clone — a team of always-on AI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "vajra Bot Contributors"},
+]
+keywords = ["ai", "agents", "local-first", "mcp", "ollama", "autonomous"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "pydantic>=2.6.0",
+    "pyyaml>=6.0.1",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.0",
+    "requests>=2.32.0",
+    "aiohttp>=3.9.0",
+    "numpy>=1.26.0",
+    "scipy>=1.13.0",
+    "scikit-learn>=1.4.0",
+    "sentence-transformers>=2.6.0",
+    "transformers>=4.41.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "mypy>=1.8.0",
+    "ruff>=0.3.0",
+    "black>=24.0.0",
+    "pre-commit>=3.6.0",
+]
+tools = [
+    "chromadb>=0.4.0",
+    "neo4j>=5.20.0",
+    "kuzu>=0.4.0",
+]
+web = [
+    "flask>=3.0.0",
+    "gunicorn>=21.2.0",
+]
+
+[project.scripts]
+vajra-bot = "agent.core.cli_main:main"
+
+[project.urls]
+Homepage = "https://github.com/yourorg/vajra-bot"
+Documentation = "https://github.com/yourorg/vajra-bot#readme"
+Repository = "https://github.com/yourorg/vajra-bot"
+Changelog = "https://github.com/yourorg/vajra-bot/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent*", "cli*", "ui*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"agent" = ["mcp/*.json"]
+"cli" = ["tui/templates/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+select = ["E", "F", "W", "I", "N", "B", "C4"]
+ignore = ["B008", "B905"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+
+[tool.coverage.run]
+source = ["agent", "cli"]
+omit = ["tests/*", "node_modules/*"]
+

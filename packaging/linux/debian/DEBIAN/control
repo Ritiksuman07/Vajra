@@ -1,0 +1,6 @@
+Package: vajra
+Version: 1.0.0
+Architecture: amd64
+Maintainer: Vajra Contributors <contact@vajra.io>
+Homepage: https://github.com/Ritiksuman07/Vajra
+Description: Local-first AI agent team with multi-agent orchestration and anti-hallucination verification.
