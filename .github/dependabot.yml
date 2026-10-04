@@ -1,0 +1,90 @@
+version: 2
+updates:
+  # Python dependencies (agent/core, cli/tui)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    assignees:
+      - "Ritiksuman07"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      dev-dependencies:
+        patterns:
+          - "ruff"
+          - "pytest"
+          - "black"
+          - "mypy"
+          - "pre-commit"
+      runtime-dependencies:
+        patterns:
+          - "pydantic"
+          - "requests"
+          - "numpy"
+          - "scipy"
+          - "scikit-learn"
+          - "sentence-transformers"
+          - "transformers"
+          - "flask"
+
+  # Go modules (service/, cli/)
+  - package-ecosystem: "gomod"
+    directory: "/service"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    assignees:
+      - "Ritiksuman07"
+    labels:
+      - "dependencies"
+      - "go"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    assignees:
+      - "Ritiksuman07"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    assignees:
+      - "Ritiksuman07"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # npm/yarn (if any frontend configs exist)
+  # - package-ecosystem: "npm"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "friday"
+  #   open-pull-requests-limit: 3
+  #   labels:
+  #     - "dependencies"
+  #     - "javascript"

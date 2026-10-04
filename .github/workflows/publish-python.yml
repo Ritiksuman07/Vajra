@@ -1,0 +1,149 @@
+name: Publish Python Package to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'main'
+
+env:
+  BUILD_DIR: dist
+  ARTIFACT_RETENTION: 14
+
+jobs:
+  prepare:
+    name: Install dependencies
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Extract version from tag
+        id: tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        if: startsWith(github.ref, 'refs/tags/')
+
+      - name: Use fallback version
+        if: steps.tag.outputs.version == ''
+        run: echo "version=$(python -c 'import tomli; print(tomli.load(open("pyproject.toml","rb"))["project"]["version"])')" >> $GITHUB_ENV
+
+      - name: Upload build tools
+        run: echo "Python and build tools ready"
+
+      - name: Build distribution
+        run: |
+          python -m pip install --upgrade build
+          python -m build --sdist --wheel .
+
+      - name: Store artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+          retention-days: 1
+
+      - name: Test package import (dry run)
+        run: |
+          pip install dist/*.whl --quiet
+          python -c "import vajra; print('Package import OK')"
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/vajra/
+    permissions:
+      id-token: write  # REQUIRED: this permission is mandatory for trusted publishing
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: Publish Python 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # Alternatively, use trusted publishing:
+          # pypi-token: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish-to-github-packages:
+    name: Publish to GitHub Packages
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: Publish Python package to GitHub Packages
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          poetry-version: "1.8"
+
+      - name: Configure pip for GHCR
+        run: |
+          echo "extra-index-url = https://npm.pkg.github.com" > ~/.config/pip/pip.conf
+          echo "@Ritiksuman07: " >> ~/.config/pip/pip.conf
+
+      - name: Publish
+        run: |
+          pip install twine
+          TWINE_USERNAME=Ritiksuman07 TWINE_PASSWORD=${{ secrets.GITHUB_TOKEN }} twine upload --repository-url https://upload.pkg.github.com/legacy/Ritiksuman07/pypi dist/*
+        env:
+          TWINE_USERNAME: Ritiksuman07
+          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+  create-release-assets:
+    name: Create Release Assets
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: Create checksum
+        run: sha256sum dist/* > dist/Checksums.txt
+
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: https://api.github.com/repos/Ritiksuman07/Vajra/releases/tags/${{ needs.prepare.outputs.version }}
+          assets: dist/*
+
+  notify:
+    name: Notify Release
+    needs: [publish-to-pypi, publish-to-github-packages, create-release-assets]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send webhook (optional)
+        run: |
+          echo "Vajra version ${{ needs.prepare.outputs.version }} published to PyPI and GitHub Packages."
+
+permissions:
+  contents: write

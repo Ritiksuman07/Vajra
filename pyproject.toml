@@ -3,26 +3,52 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vajra-bot"
+name = "vajra"
 version = "1.0.0"
-description = "Local-first open-source vajra Bot clone — a team of always-on AI agents"
+description = "Local-first open-source AI agent team with multi-agent orchestration and 4-layer anti-hallucination verification"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "vajra Bot Contributors"},
+    {name = "Ritik Suman"},
 ]
-keywords = ["ai", "agents", "local-first", "mcp", "ollama", "autonomous"]
+maintainers = [
+    {name = "Ritik Suman", email = "ritik@example.com"},
+]
+keywords = [
+    "ai-agent",
+    "local-llm",
+    "offline-ai",
+    "open-source-ai",
+    "autonomous-agents",
+    "multi-agent",
+    "mcp",
+    "model-context-protocol",
+    "anti-hallucination",
+    "privacy-first",
+    "self-hosted",
+    "ollama",
+    "appimage",
+    "inno-setup",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
 ]
 
 dependencies = [
@@ -59,13 +85,15 @@ web = [
 ]
 
 [project.scripts]
-vajra-bot = "agent.core.cli_main:main"
+vajra = "agent.core.cli_main:main"
 
 [project.urls]
-Homepage = "https://github.com/yourorg/vajra-bot"
-Documentation = "https://github.com/yourorg/vajra-bot#readme"
-Repository = "https://github.com/yourorg/vajra-bot"
-Changelog = "https://github.com/yourorg/vajra-bot/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Ritiksuman07/Vajra"
+Documentation = "https://github.com/Ritiksuman07/Vajra#readme"
+Repository = "https://github.com/Ritiksuman07/Vajra"
+Changelog = "https://github.com/Ritiksuman07/Vajra/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Ritiksuman07/Vajra/issues"
+"Security" = "https://github.com/Ritiksuman07/Vajra/security/policy"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -75,6 +103,24 @@ exclude = ["tests*"]
 [tool.setuptools.package-data]
 "agent" = ["mcp/*.json"]
 "cli" = ["tui/templates/*"]
+
+[tool.setuptools.dynamic]
+readme = {file = "README.md"}
+
+# --- GitHub Actions PyPI Publish Configuration ---
+# This section is used by .github/workflows/publish.yml
+# to automatically publish to PyPI on tagged releases.
+
+# PyPI Token (store as GitHub Secret)
+# Name: PYPI_API_TOKEN
+# Scope: Upload package to PyPI
+
+# To generate token:
+# 1. Go to https://pypi.org/manage/account/
+# 2. Click "Add API token"
+# 3. Name: "github-actions-publish"
+# 4. Scope: Entire account (or specific project)
+# 5. Copy token and add to GitHub repo secrets
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -101,4 +147,3 @@ include = '\.pyi?$'
 [tool.coverage.run]
 source = ["agent", "cli"]
 omit = ["tests/*", "node_modules/*"]
-
