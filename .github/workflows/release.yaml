@@ -58,7 +58,7 @@ jobs:
           cd cli && CGO_ENABLED=0 GOOS=darwin go build -ldflags="-X main.version=${{ env.VERSION }} -s -w" -o ../dist/vajra .
 
       - name: Upload Service Binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: service-binaries-${{ matrix.os }}
           path: dist/
@@ -83,7 +83,7 @@ jobs:
           script: packaging/windows/vajra.iss
 
       - name: Upload Windows Installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vajra-windows-installer
           path: dist/releases/*.exe
@@ -115,7 +115,7 @@ jobs:
           bash scripts/build-linux.sh
 
       - name: Upload Linux Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vajra-linux-packages
           path: dist/vajra-*.AppImage, dist/vajra-*.deb, dist/vajra-*.rpm
