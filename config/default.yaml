@@ -1,0 +1,135 @@
+# Vajra Configuration (default)
+# Located at: ~/.config/vajra/config.yaml (Linux/macOS)
+# Or: %LOCALAPPDATA%\Vajra\config.yaml (Windows)
+
+service:
+  port: 4096
+  data_dir: ~/.local/share/vajra
+  log_level: info
+  log_max_size: 10MB
+  log_max_files: 5
+
+models:
+  default_backend: ollama
+  ollama:
+    host: http://localhost:11434
+    default_model: llama3.1:8b
+    fallback: llama3.1:70b
+  lmstudio:
+    host: http://localhost:1234
+    default_model: llama3.1:8b
+  llama_cpp:
+    executable: llama
+    model_dir: ~/.local/share/vajra/models
+    default_model: llama-3-8b
+
+agents:
+  max_pods: 8
+  default_resources:
+    cpu: "2"
+    memory: "4g"
+  auto_scale: true
+  idle_timeout: 300  # seconds before pod shutdown
+
+agent_profiles:
+  chief_of_staff:
+    role: chief
+    model: llama3.1:70b
+    temperature: 0.7
+    max_tokens: 8192
+    tools: ["file-system", "shell", "git", "knowledge"]
+  coder:
+    role: coder
+    model: deepseek-coder-v2
+    temperature: 0.4
+    max_tokens: 8192
+    tools: ["file-system", "code-exec", "git", "shell"]
+  researcher:
+    role: researcher
+    model: llama3.1:8b
+    temperature: 0.8
+    max_tokens: 4096
+    tools: ["file-system", "shell", "knowledge"]
+  executor:
+    role: executor
+    model: phi-3.5-mini
+    temperature: 0.6
+    max_tokens: 4096
+    tools: ["file-system", "shell"]
+  reviewer:
+    role: reviewer
+    model: llama3.1:8b
+    temperature: 0.5
+    max_tokens: 4096
+    tools: ["file-system", "git", "code-exec"]
+
+verification:
+  enabled: true
+  local_only: true  # Zero cloud calls for verification
+  layers:
+    - fast_checks
+    - semantic_similarity
+    - llm_judge
+    - human_escalation
+  thresholds:
+    layer1:
+      passed: true
+    layer2:
+      cosine_similarity: 0.75
+      nb_score_threshold: 0.8
+    layer3:
+      min_dimension_score: 7.0
+      inter_rater_agreement_kappa: 0.7
+    layer4:
+      confidence_threshold: 0.6  # Below this → escalate
+      latency_sla_ms: 50  # Acknowledge
+      resolution_sla_min: 120  # Resolve
+  models:
+    judge: llama3.1:8b
+    embedder: bge-small-en-v1.5
+  citation_format: "[cite:{doc_id}:{chunk_id}:{start_line}-{end_line}]"
+  source_trust_scoring:
+    initial: 0.5
+    decay_factor: 0.99
+    blacklist_threshold: 0.3
+    priority_boost_threshold: 0.8
+
+mcp:
+  servers:
+    - name: file-system
+      enabled: true
+      path: agent/tools/file_server/mcp_server.py
+      allowed_dirs: ["/workspace"]
+    - name: shell
+      enabled: true
+      path: agent/tools/shell_server/mcp_server.py
+      timeout: 30
+      network_disabled: true
+    - name: git
+      enabled: true
+      path: agent/tools/git_server/mcp_server.py
+    - name: code-exec
+      enabled: true
+      path: agent/tools/code_exec/mcp_server.py
+      sandbox_dir: /tmp/vajra-sandbox
+      timeout: 30
+    - name: knowledge-graph
+      enabled: true
+      type: neo4j
+      uri: bolt://localhost:7687
+      auth:
+        user: neo4j
+        password: vajra-neo4j
+
+ui:
+  web:
+    enabled: true
+    host: localhost
+    port: 8080
+  tui:
+    theme: dark
+    keybindings:
+      toggle_plan_mode: "Ctrl+P"
+      new_chat: "Ctrl+N"
+      monitor: "Ctrl+M"
+      quit: "Ctrl+Q"

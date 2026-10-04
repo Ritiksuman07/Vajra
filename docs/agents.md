@@ -239,7 +239,7 @@ python tests/test_multi_agent.py
 
 ## Build Notes
 
-- No `grok` references remain (renamed to vajra throughout)
+- All references renamed from `grok-bot` to `vajra` throughout
 - All paths updated to vajra naming
 - Config dirs: `~/.config/vajra` (Linux/macOS), `%LOCALAPPDATA%\Vajra` (Windows)
 - See `packaging/CHANGES.md` for full build history

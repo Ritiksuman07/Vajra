@@ -99,5 +99,5 @@ git push origin v1.0.0
 ## Notes
 
 - NSIS `vajra.nsi` updated (merged old broken content)
-- All "grok-bot" references → "vajra"
+- All references renamed from "grok-bot" to "vajra"
 - All config paths: `~/.config/vajra`, `%LOCALAPPDATA%\Vajra`

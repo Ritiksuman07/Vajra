@@ -53,9 +53,9 @@
 
 ### Upgrade Notes
 
-- Config file moved from `~/.config/grok-bot/` → `~/.config/vajra/`
+- Config file moved from `~/.config/grok-bot/` → `~/.config/vajra/` (if upgrading from a previous version)
 - Database schema v1 (migrates automatically)
-- `vajra` replaces all `grok-bot` commands
+- `vajra` replaces all `grok-bot` commands (if upgrading from a previous version)
 
 ### Known Issues
 
@@ -64,7 +64,7 @@
 
 ### Credits
 
-Built with ❤️ by the Vajra team. Inspired by Grok Bot, AutoGPT, and OpenCode.
+Built with ❤️ by the Vajra team. Inspired by the agent community (AutoGPT, OpenCode, and open-source multi-agent frameworks).
 
 ### License
 
