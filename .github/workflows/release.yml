@@ -56,7 +56,7 @@ jobs:
           echo "ARTIFACT=$ARTIFACT" >> $GITHUB_ENV
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -91,7 +91,7 @@ jobs:
           & $iscc "/DVersion=$v" packaging\windows\vajra.iss
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: dist/releases/*.exe
