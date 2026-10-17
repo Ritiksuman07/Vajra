@@ -27,9 +27,9 @@ jobs:
           - { goos: darwin,  goarch: amd64, ext: "" }
           - { goos: darwin,  goarch: arm64, ext: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.24"
 
@@ -56,7 +56,7 @@ jobs:
           echo "ARTIFACT=$ARTIFACT" >> $GITHUB_ENV
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -68,8 +68,8 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.24"
 
@@ -91,7 +91,7 @@ jobs:
           & $iscc "/DVersion=$v" packaging\windows\vajra.iss
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: dist/releases/*.exe
@@ -101,10 +101,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, windows-installer]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
