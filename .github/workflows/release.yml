@@ -27,7 +27,7 @@ jobs:
           - { goos: darwin,  goarch: amd64, ext: "" }
           - { goos: darwin,  goarch: arm64, ext: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v5
         with:
@@ -68,7 +68,7 @@ jobs:
     runs-on: windows-latest
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, windows-installer]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
