@@ -1,0 +1,11 @@
+Package: vajra
+Version: 1.1.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Ritik Suman <https://github.com/Ritiksuman07>
+Homepage: https://github.com/Ritiksuman07/Vajra
+Description: Local-first AI agent workspace
+ Vajra is an offline-first AI agent workspace written in Go. It ships a
+ terminal UI, a web GUI and a REST API that talk to local model servers
+ such as Ollama. No telemetry, no cloud dependency.

@@ -10,6 +10,7 @@ packaging/
 │   └── vajra.nsi          # NSIS (fallback)
 ├── linux/
 │   ├── build-appimage.sh  # AppImage
+│   ├── build-deb.sh       # .deb (needs dpkg-deb)
 │   ├── vajra.desktop      # desktop entry
 │   └── DEBIAN/control     # deb metadata
 ├── RELEASE-DRAFT.md       # release notes template
@@ -41,6 +42,7 @@ One-shot helper: `pwsh scripts\build.ps1 -Version 1.1.0`
 ```bash
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/vajra-linux-amd64 .
 bash packaging/linux/build-appimage.sh 1.1.0   # needs appimagetool
+bash packaging/linux/build-deb.sh 1.1.0       # needs dpkg-deb
 ```
 
 `scripts/build.sh` cross-compiles Linux and macOS binaries and tars them
