@@ -119,12 +119,11 @@ kept so contributors can see the direction of travel.
 
 ## 🧰 Maintenance
 
-- [ ] Attach the missing `VajraSetup-1.2.0-win-x64.exe.sha256` to the published
-      v1.2.0 release: **Actions → Release → Run workflow → `version: v1.2.0`**.
-      The workflow now resolves and validates that input (it used to ignore it
-      and would have built `…-main-…`), and sets `tag_name`, so this targets the
-      tag rather than the branch. Every release from v1.3.0 on gets the installer
-      checksum automatically.
+- [x] `VajraSetup-1.2.0-win-x64.exe.sha256` added to the published v1.2.0
+      release, so every artifact it ships now has a checksum. Uploaded as a
+      release asset rather than by re-running the workflow: a dispatch today
+      checks out a later tree and would republish the wrong release notes. From
+      v1.3.0 on, `release.yml` produces the installer checksum itself.
 - [ ] Lint the workflows in CI with `actionlint`. `release.yml` is never
       exercised by a pull request, so a broken release workflow is only found on
       release day — which is how the two bugs above survived.
