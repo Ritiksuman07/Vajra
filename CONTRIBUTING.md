@@ -70,15 +70,25 @@ internal/tui            terminal UI
    ```bash
    gofmt -s -l .        # must print nothing
    go vet ./...
-   go test ./... -race
+   go test ./... -race  # CI runs this with -count=1; see the note below
    ```
 4. Add tests for behaviour changes.
 5. Open a PR and fill in the template.
+
+> **Run the race detector.** CI runs `go test ./... -race -count=1`, and a race
+> in *test* code fails the build just as loudly as one in production code.
+> `-race` needs cgo and a C compiler (`gcc`/`clang`); on Windows:
+> `choco install mingw` then `$env:CGO_ENABLED = "1"`. Without a compiler, at
+> least run `go test ./... -count=1` locally and let CI do the race check —
+> but never assume a green local run means a green CI run.
 
 **Ground rules**
 - No telemetry, analytics or update pings.
 - No new always-on network calls; anything outbound must be opt-in.
 - Keep the binary self-contained (assets embedded, no CDN).
+- Tests must not need the network, a model, or anything in `~/.vajra`: point
+  the config at `t.TempDir()` and stand up an `httptest` server for anything
+  that would otherwise call Ollama.
 
 ## Code style
 
