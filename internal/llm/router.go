@@ -122,6 +122,11 @@ func (r *Router) Chat(ctx context.Context, req ChatRequest) (*Response, error) {
 	if req.Temperature == 0 {
 		req.Temperature = r.cfg.Temperature
 	}
+	// Ask local servers to allocate the window we are actually budgeting for;
+	// otherwise they may allocate a smaller one and silently truncate.
+	if req.NumCtx == 0 {
+		req.NumCtx = r.cfg.MaxContext
+	}
 	return b.Chat(ctx, req)
 }
 

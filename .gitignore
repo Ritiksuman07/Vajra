@@ -35,3 +35,7 @@ desktop.ini
 *.rpm
 *.dmg
 Output/
+
+# Session exports (`vajra export` writes to the current directory by default)
+vajra-*.md
+vajra-*.json

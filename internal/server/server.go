@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/Ritiksuman07/Vajra/internal/agent"
+	"github.com/Ritiksuman07/Vajra/internal/attach"
 	"github.com/Ritiksuman07/Vajra/internal/config"
 	"github.com/Ritiksuman07/Vajra/internal/llm"
+	"github.com/Ritiksuman07/Vajra/internal/rag"
 	"github.com/Ritiksuman07/Vajra/internal/session"
 	"github.com/Ritiksuman07/Vajra/internal/verify"
 )
@@ -74,11 +76,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/sessions", s.handleSessionCreate)
 	mux.HandleFunc("GET /api/sessions/{id}", s.handleSessionGet)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleSessionDelete)
+	mux.HandleFunc("GET /api/sessions/{id}/export", s.handleSessionExport)
 
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("POST /api/chat/stream", s.handleChatStream)
 	mux.HandleFunc("POST /api/team", s.handleSwarm)
 	mux.HandleFunc("POST /api/swarm", s.handleSwarm)
+	mux.HandleFunc("GET /api/rag", s.handleRagStatus)
+	mux.HandleFunc("POST /api/rag/index", s.handleRagIndex)
+	mux.HandleFunc("DELETE /api/rag", s.handleRagRemove)
 	mux.HandleFunc("POST /api/verify", s.handleVerify)
 
 	// Embedded web UI.
@@ -332,6 +338,14 @@ func (s *Server) handleSessionDelete(w http.ResponseWriter, r *http.Request) {
 // Chat
 // ---------------------------------------------------------------------------
 
+// filePayload is a file the browser read and sent along with a prompt. The
+// server never reads arbitrary paths on behalf of a web client: the browser
+// has the file, so the browser sends the text.
+type filePayload struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
 type chatRequest struct {
 	SessionID string `json:"session_id"`
 	Message   string `json:"message"`
@@ -339,12 +353,62 @@ type chatRequest struct {
 	Agent     string `json:"agent"`
 	Verify    bool   `json:"verify"`
 
+	// Local context.
+	Files  []filePayload `json:"files,omitempty"`
+	RAGDir string        `json:"rag_dir,omitempty"`
+
 	// Swarm tuning (optional; sensible defaults apply).
 	MinAgents  int   `json:"min_agents,omitempty"`
 	MaxAgents  int   `json:"max_agents,omitempty"`
 	Handoffs   int   `json:"handoffs,omitempty"`
 	Concurrent int   `json:"concurrent,omitempty"`
 	Review     *bool `json:"review,omitempty"`
+}
+
+// attachments turns the browser's files into local attachment records.
+func (req *chatRequest) attachments() []attach.File {
+	if len(req.Files) == 0 {
+		return nil
+	}
+	lim := attach.Limits{}
+	out := make([]attach.File, 0, len(req.Files))
+	for _, f := range req.Files {
+		out = append(out, attach.FromData(f.Name, f.Content, lim))
+	}
+	return out
+}
+
+// enrich builds the text actually sent to the model: attached files, then
+// retrieved passages, then the question. It returns the augmented prompt, the
+// attachment names that were used, the sources that were cited, and the same
+// context rendered as verification grounding.
+func (s *Server) enrich(ctx context.Context, req *chatRequest) (input string, names, sources, grounding []string) {
+	input = req.Message
+
+	if files := req.attachments(); len(files) > 0 {
+		if block := attach.Block(files); block != "" {
+			input = block + "\n\n" + input
+		}
+		for _, f := range files {
+			if f.Attached() {
+				names = append(names, f.Name)
+			}
+		}
+		grounding = append(grounding, attach.Grounding(files, 4000)...)
+	}
+
+	if strings.TrimSpace(req.RAGDir) != "" {
+		store := rag.NewStore(config.IndexDir())
+		idx, err := store.Load(req.RAGDir)
+		if err == nil {
+			if hits, serr := rag.Search(ctx, s.router, idx, req.Message, rag.SearchOptions{}); serr == nil && len(hits) > 0 {
+				input = rag.Context(hits, s.cfg.MaxContext/3) + "\n\n" + input
+				sources = rag.Sources(hits)
+				grounding = append(grounding, rag.Grounding(hits, 4000)...)
+			}
+		}
+	}
+	return input, names, sources, grounding
 }
 
 func (s *Server) prepare(req *chatRequest) (*session.Session, error) {
@@ -384,8 +448,9 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 
+	input, names, sources, grounding := s.enrich(ctx, &req)
 	history := toLLMMessages(sess.History(20))
-	resp, err := s.runner.RunModel(ctx, req.Agent, req.Model, history, req.Message, nil)
+	resp, err := s.runner.RunModel(ctx, req.Agent, req.Model, history, input, nil)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, err.Error())
 		return
@@ -393,15 +458,16 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	sess.Model = req.Model
 	sess.Agent = req.Agent
-	sess.Add(session.Message{Role: "user", Content: req.Message})
+	sess.Add(session.Message{Role: "user", Content: req.Message, Attachments: names})
 	msg := session.Message{
 		Role: "assistant", Content: resp.Content, Model: req.Model,
-		Agent: req.Agent, Tokens: resp.EvalTokens,
+		Agent: req.Agent, Tokens: resp.EvalTokens, Sources: sources,
 	}
 	var report *verify.Report
 	if req.Verify || s.cfg.Verify {
 		report = verify.Run(ctx, resp.Content, verify.Options{
 			Router: s.router, JudgeModel: s.cfg.GetJudgeModel(), MinScore: 70,
+			Context: grounding,
 		})
 		msg.Verification = toSessionVerification(report)
 	}
@@ -450,9 +516,32 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
 
+	// Files and retrieved passages become part of the prompt.
+	input, names, sources, grounding := s.enrich(ctx, &req)
+	if len(names) > 0 || len(sources) > 0 {
+		sse(map[string]any{"type": "context", "attachments": names, "sources": sources})
+	}
+
+	// Report the context budget before generating: the client can tell the
+	// user how much of the window this turn will use, and whether older turns
+	// had to be dropped.
 	history := toLLMMessages(sess.History(20))
+	sys := ""
+	if a, ok := agent.Get(req.Agent); ok {
+		sys = a.System
+	}
+	probe := make([]llm.Message, 0, len(history)+2)
+	probe = append(probe, llm.Message{Role: llm.RoleSystem, Content: sys})
+	probe = append(probe, history...)
+	probe = append(probe, llm.Message{Role: llm.RoleUser, Content: input})
+	tr := s.runner.Budget().Trim(probe)
+	sse(map[string]any{
+		"type": "budget", "used": tr.Used, "limit": tr.Limit,
+		"max": s.cfg.MaxContext, "dropped": tr.Dropped,
+	})
+
 	var sb strings.Builder
-	resp, err := s.runner.RunModel(ctx, req.Agent, req.Model, history, req.Message, func(tok string) error {
+	resp, err := s.runner.RunModel(ctx, req.Agent, req.Model, history, input, func(tok string) error {
 		sb.WriteString(tok)
 		sse(map[string]any{"type": "token", "text": tok})
 		return nil
@@ -469,13 +558,17 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 
 	sess.Model = req.Model
 	sess.Agent = req.Agent
-	sess.Add(session.Message{Role: "user", Content: req.Message})
-	msg := session.Message{Role: "assistant", Content: content, Model: req.Model, Agent: req.Agent, Tokens: resp.EvalTokens}
+	sess.Add(session.Message{Role: "user", Content: req.Message, Attachments: names})
+	msg := session.Message{
+		Role: "assistant", Content: content, Model: req.Model, Agent: req.Agent,
+		Tokens: resp.EvalTokens, Sources: sources,
+	}
 
 	if req.Verify || s.cfg.Verify {
 		sse(map[string]any{"type": "verifying"})
 		report := verify.Run(ctx, content, verify.Options{
 			Router: s.router, JudgeModel: s.cfg.GetJudgeModel(), MinScore: 70,
+			Context: grounding,
 		})
 		msg.Verification = toSessionVerification(report)
 		sse(map[string]any{"type": "verification", "report": report})
@@ -490,7 +583,8 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 //
 // Every event is a serialised agent.SwarmEvent, so clients receive the plan,
 // each agent's streamed tokens, the agent-to-agent bus traffic, the reviewer
-// critique and the final synthesis.
+// critique and the final synthesis. The run is saved as a session, including
+// the agent transcript, so it can be replayed and exported.
 func (s *Server) handleSwarm(w http.ResponseWriter, r *http.Request) {
 	var req chatRequest
 	if err := decode(r, &req); err != nil {
@@ -522,6 +616,19 @@ func (s *Server) handleSwarm(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
 
+	if req.Model == "" {
+		req.Model = s.cfg.Model
+	}
+	if req.Agent == "" {
+		req.Agent = s.cfg.Agent
+	}
+
+	// Attachments and retrieved passages become part of the goal.
+	goal, names, sources, _ := s.enrich(ctx, &req)
+	if len(names) > 0 || len(sources) > 0 {
+		sse(map[string]any{"type": "context", "attachments": names, "sources": sources})
+	}
+
 	opts := agent.SwarmOptions{
 		MinAgents:  req.MinAgents,
 		MaxAgents:  req.MaxAgents,
@@ -532,14 +639,156 @@ func (s *Server) handleSwarm(w http.ResponseWriter, r *http.Request) {
 		opts.DisableReview = !*req.Review
 	}
 
-	_, err := s.runner.RunSwarm(ctx, req.Message, opts, func(ev agent.SwarmEvent) {
+	var turns []session.SwarmTurn
+	res, err := s.runner.RunSwarm(ctx, goal, opts, func(ev agent.SwarmEvent) {
+		if ev.Type == "bus" && ev.Msg != nil {
+			mu.Lock()
+			turns = append(turns, session.SwarmTurn{
+				From: ev.Msg.From, To: ev.Msg.To, Kind: ev.Msg.Kind, Text: ev.Msg.Text,
+			})
+			mu.Unlock()
+		}
 		sse(ev)
 	})
 	if err != nil {
 		sse(map[string]any{"type": "error", "error": err.Error()})
 		return
 	}
+
+	// Persist the run so the web UI can list it and it can be exported.
+	sess, perr := s.prepare(&req)
+	if perr == nil {
+		sess.Model = req.Model
+		sess.Agent = "swarm"
+		sess.Add(session.Message{Role: "user", Content: req.Message, Attachments: names})
+		final := ""
+		if res != nil {
+			final = res.Final
+		}
+		sess.Add(session.Message{
+			Role: "assistant", Content: final, Model: req.Model, Agent: "swarm",
+			Sources: sources, Swarm: turns,
+		})
+		_ = s.store.Save(sess)
+		sse(map[string]any{"type": "done", "session_id": sess.ID})
+		return
+	}
 	sse(map[string]any{"type": "done"})
+}
+
+// ---------------------------------------------------------------------------
+// Local retrieval (RAG)
+// ---------------------------------------------------------------------------
+
+func (s *Server) ragStore() *rag.Store { return rag.NewStore(config.IndexDir()) }
+
+func (s *Server) handleRagStatus(w http.ResponseWriter, r *http.Request) {
+	dir := r.URL.Query().Get("dir")
+	store := s.ragStore()
+	if dir == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"indexed": false, "root": config.IndexDir()})
+		return
+	}
+	idx, err := store.Load(dir)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"dir": dir, "indexed": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"dir": dir, "indexed": true, "files": idx.Files,
+		"chunks": len(idx.Chunks), "model": idx.Model, "dim": idx.Dim,
+		"created": idx.Created,
+	})
+}
+
+// handleRagIndex indexes a folder, streaming progress as SSE so the browser
+// can show a bar instead of hanging on a long request.
+func (s *Server) handleRagIndex(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Dir string `json:"dir"`
+	}
+	if err := decode(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if strings.TrimSpace(req.Dir) == "" {
+		writeErr(w, http.StatusBadRequest, "dir is required")
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeErr(w, http.StatusInternalServerError, "streaming unsupported")
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	sse := func(payload any) {
+		b, _ := json.Marshal(payload)
+		fmt.Fprintf(w, "data: %s\n\n", b)
+		flusher.Flush()
+	}
+
+	store := s.ragStore()
+	idx, err := rag.Build(r.Context(), s.router, req.Dir, rag.Options{
+		Model: s.cfg.GetEmbedModel(),
+		Progress: func(stage string, done, total int, current string) {
+			sse(map[string]any{"type": "progress", "stage": stage, "done": done, "total": total, "current": current})
+		},
+	})
+	if err != nil {
+		sse(map[string]any{"type": "error", "error": err.Error()})
+		return
+	}
+	if err := store.Save(idx); err != nil {
+		sse(map[string]any{"type": "error", "error": err.Error()})
+		return
+	}
+	sse(map[string]any{
+		"type": "done", "dir": idx.Dir, "files": idx.Files,
+		"chunks": len(idx.Chunks), "model": idx.Model,
+	})
+}
+
+func (s *Server) handleRagRemove(w http.ResponseWriter, r *http.Request) {
+	dir := r.URL.Query().Get("dir")
+	if dir == "" {
+		writeErr(w, http.StatusBadRequest, "dir is required")
+		return
+	}
+	if err := s.ragStore().Remove(dir); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"removed": dir})
+}
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+// handleSessionExport downloads a session as Markdown or JSON.
+func (s *Server) handleSessionExport(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, err := s.store.Load(id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "session not found")
+		return
+	}
+	format := r.URL.Query().Get("format")
+	data, ext, err := sess.Export(format)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	ctype := "text/markdown; charset=utf-8"
+	if ext == "json" {
+		ctype = "application/json"
+	}
+	if r.URL.Query().Get("download") != "0" {
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+sess.Filename(ext)+"\"")
+	}
+	w.Header().Set("Content-Type", ctype)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {

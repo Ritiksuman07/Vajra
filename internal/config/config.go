@@ -49,6 +49,9 @@ type Config struct {
 	Stream bool `json:"stream"`
 	// Temperature controls sampling (0..1).
 	Temperature float64 `json:"temperature"`
+	// MaxContext is the context window Vajra budgets for, in tokens. Older
+	// turns are trimmed to fit (default 8192).
+	MaxContext int `json:"max_context"`
 	// SystemPrompt is prepended to every conversation when no agent is set.
 	SystemPrompt string `json:"system_prompt,omitempty"`
 	// OllamaHost is the base URL of the local Ollama server.
@@ -75,6 +78,7 @@ func Default() *Config {
 		Verify:      false,
 		Stream:      true,
 		Temperature: 0.7,
+		MaxContext:  8192,
 		OllamaHost:  "http://localhost:11434",
 		Port:        4096,
 		Providers: []Provider{
@@ -100,6 +104,12 @@ func Path() string { return filepath.Join(Dir(), "config.json") }
 
 // SessionsDir returns the directory used to persist chat sessions.
 func SessionsDir() string { return filepath.Join(Dir(), "sessions") }
+
+// IndexDir returns the directory used to persist RAG indexes.
+func IndexDir() string { return filepath.Join(Dir(), "index") }
+
+// ExportsDir returns the directory session exports are written to.
+func ExportsDir() string { return filepath.Join(Dir(), "exports") }
 
 // Load reads the config from disk, falling back to defaults. Environment
 // variables override the persisted values so containers and CI can tweak
@@ -156,6 +166,11 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("VAJRA_VERIFY"); v == "1" || strings.EqualFold(v, "true") {
 		c.Verify = true
 	}
+	if v := os.Getenv("VAJRA_MAX_CONTEXT"); v != "" {
+		if n, err := atoi(v); err == nil {
+			c.MaxContext = n
+		}
+	}
 }
 
 func (c *Config) normalise() {
@@ -176,6 +191,9 @@ func (c *Config) normalise() {
 	}
 	if c.Temperature == 0 {
 		c.Temperature = 0.7
+	}
+	if c.MaxContext <= 0 {
+		c.MaxContext = 8192
 	}
 	if len(c.Providers) == 0 {
 		c.Providers = []Provider{

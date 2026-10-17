@@ -63,6 +63,8 @@ they do anything. Vajra is different:
 - 🛡️ **Honest about trust.** A real verification pipeline, with the limits documented.
 - 🧠 **A swarm, not a chatbot.** Specialists that plan, work in parallel,
   review each other and talk over a shared bus you can read.
+- 📎 **Your files as context.** Attach files by drag-and-drop, `@path` or
+  `--file`, and answer questions about a whole folder with local retrieval.
 - 🖥️ **Three interfaces.** Terminal, browser, or HTTP API — your choice.
 
 ## 🚀 Quick start
@@ -93,10 +95,13 @@ vajra doctor     # check your setup
 
 ```bash
 vajra                                  # interactive TUI
-vajra web                              # web GUI  →  http://localhost:4096
+vajra web                              # web GUI  →  http://127.0.0.1:4096
 vajra run "explain goroutines"         # one-shot, streams to stdout
 cat main.go | vajra run --agent reviewer "review this"
+vajra run --file notes.md "summarise this"                # attach a local file
+vajra index ~/notes && vajra run --rag ~/notes "what did I decide about retries?"
 vajra run --swarm "design a CLI for a bookmark manager"   # multi-agent swarm
+vajra export                           # export the latest session as Markdown
 vajra serve --port 8080                # REST API + SSE
 ```
 
@@ -175,6 +180,51 @@ model only names one — Vajra tops the roster up from a default rotation. Cost
 is bounded: one parallel round, one critique, at most three handoffs, one
 synthesis.
 
+## 📂 Your files, locally
+
+Vajra can answer about your own files without anything leaving the machine.
+
+**Attach files** — in the TUI with `/attach notes.md` or by mentioning
+`@internal/rag/rag.go` in a prompt; in the web UI by 📎 or drag-and-drop; from
+the CLI with `--file`:
+
+```bash
+vajra run --file README.md --file internal/rag/rag.go "what does rag.go do?"
+```
+
+**Ask a whole folder** — index it once, then search it by meaning:
+
+```bash
+ollama pull nomic-embed-text     # a small embedding model
+vajra index ~/notes              # chunk + embed → ~/.vajra/index
+vajra rag ~/notes "what did I decide about retries?"
+vajra run --rag ~/notes "summarise my retry decisions"
+```
+
+In the TUI: `/rag <folder>` (indexes on first use). In the web UI: 📚 Folder.
+Answers cite what they used, as `file:line`:
+
+```
+[1] retries.md:1 (similarity 0.81)
+# Retry policy
+The retry policy uses exponential backoff with full jitter.
+```
+
+There is no vector database and no service: chunks are embedded by your local
+model, stored as JSON, and ranked with cosine similarity. Build output,
+dependencies and dot-directories are skipped; files, chunks and size are all
+bounded.
+
+**Long chats trim themselves.** The conversation is budgeted to fit the model's
+context window (default `8192` tokens, `VAJRA_MAX_CONTEXT` to change it). Older
+turns are dropped from the front, the system prompt and your latest question
+are always kept, and both UIs show the level (`ctx 2.1k/8.2k`) plus a notice
+when something was trimmed.
+
+**Take the conversation with you.** `/export` in the TUI (`Ctrl+E`), ⬇ Export
+in the web UI, or `vajra export` — Markdown or JSON, including the attachments
+used, the cited sources and the full swarm transcript.
+
 ## ✅ Anti-hallucination
 
 Every answer can be checked locally before you trust it:
@@ -194,6 +244,12 @@ vajra verify "Paris is the capital of France."
 ```
 
 In the TUI press `Ctrl+V`; in the web UI toggle **🛡️ Verify**.
+
+Verification is grounded in what the model was actually given: your attached
+files and the passages retrieval cited are handed to layer 2 (and to the
+judge), so "verified" means the answer resembles its sources. When there was
+nothing to compare against, layer 2 reports that it was skipped rather than
+pretending to have checked.
 
 > Vajra is upfront: this is a set of heuristics, not a proof of truth. It
 > surfaces uncertainty so *you* can decide what to trust.
@@ -238,15 +294,18 @@ main.go ─┬─ internal/tui      (Bubble Tea terminal UI)
          └─ internal/agent    (roles + swarm orchestrator)
                  │
        internal/llm  ◀── internal/verify
-        (router)          (4-layer pipeline)
+        (router,          (4-layer pipeline)
+         budgeting)
            │
-      Ollama (local)  ·  OpenAI/Anthropic/OpenRouter (opt-in)
+   internal/attach  internal/rag  internal/session
+   (files)          (embeddings)  (store + export)
 ```
 
 ## ⚙️ Configuration
 
 Config lives at `~/.vajra/config.json`; sessions are readable JSON in
-`~/.vajra/sessions/`.
+`~/.vajra/sessions/`, retrieval indexes in `~/.vajra/index/` and TUI exports in
+`~/.vajra/exports/`.
 
 ```bash
 vajra config --set model=llama3.1:8b
@@ -257,6 +316,8 @@ vajra config --set ollama_host=http://localhost:11434
 | Env var | Effect |
 |---------|--------|
 | `VAJRA_MODEL`, `VAJRA_AGENT`, `VAJRA_PORT`, `VAJRA_VERIFY` | Defaults |
+| `VAJRA_MAX_CONTEXT` | Context window budget in tokens (default `8192`) |
+| `VAJRA_CONFIG_DIR` | Where config, sessions and indexes live |
 | `OLLAMA_HOST` / `VAJRA_OLLAMA_HOST` | Ollama endpoint |
 
 ## 📚 Documentation
@@ -274,8 +335,8 @@ vajra config --set ollama_host=http://localhost:11434
 
 ## 🗺️ Roadmap
 
-Coming next: retrieval over local files, file attachments, tool calling with a
-sandbox, session export, and winget/brew packages. See [docs/TODO.md](docs/TODO.md).
+Coming next: incremental re-indexing, tool calling with a sandbox, and
+winget/brew packages. See [docs/TODO.md](docs/TODO.md).
 
 ## 🤝 Contributing
 

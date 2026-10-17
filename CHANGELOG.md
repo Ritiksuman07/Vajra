@@ -7,10 +7,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.2.0] — 2026-10-17
 
 Swarm mode: the multi-agent runner is now a real team that talks to itself,
-and you can read every message.
+and you can read every message. This release also adds the local context
+layer — attachments, retrieval, budgeting and export.
 
 ### Added
 
+- **File attachments.** Attach local files to a prompt and Vajra folds them in
+  as context, with the question kept last: `/attach <path>` or `@path/to/file`
+  in the TUI, 📎 or drag-and-drop in the web UI, a repeatable `--file` on the
+  CLI, and `files: [{name, content}]` on the API. Binary and oversized files
+  are skipped *and reported* — nothing disappears silently.
+- **Retrieval over a local folder.** `vajra index <folder>` chunks, embeds and
+  stores an index in `~/.vajra/index`; `vajra rag <folder> "query"` searches
+  it. In the TUI (`/rag <folder>`) and web UI (📚 Folder) every prompt is
+  answered with the closest passages, cited as `file:line` with a similarity
+  score. `GET/POST/DELETE /api/rag` expose it over HTTP, with indexing progress
+  streamed as SSE. No vector database, no service — JSON and cosine similarity.
+- **Conversation context budgeting.** Prompts are trimmed to fit the model's
+  window (`VAJRA_MAX_CONTEXT`, default 8192). The oldest whole turns are
+  dropped first; the system prompt and your latest question always survive. The
+  TUI header shows `ctx 2.1k/8.2k`, the web UI shows a meter, and both say when
+  something was trimmed. `Router.Chat` now passes the real `num_ctx`.
+- **Grounded verification.** Attached files and retrieved passages are passed
+  to the verification pipeline, so layer 2 compares the answer with what the
+  model was actually given, and says so when there was nothing to compare.
+- **Session export.** `session.Message` now records attachments, sources and
+  the swarm transcript. `vajra export [<id>] [--format md|json] [--out <path>]`,
+  `/export` (or `Ctrl+E`) in the TUI → `~/.vajra/exports/`, ⬇ Export in the web
+  UI, and `GET /api/sessions/{id}/export` over HTTP.
 - **Swarm mode** (`--swarm`, `Ctrl+T`, or the 🐝 toggle in the web UI). The
   Chief decomposes the goal, and **3–4 specialist agents work in parallel**,
   each streaming its own answer. A plan guarantee tops up the roster when a
@@ -31,16 +55,22 @@ and you can read every message.
   synthesis.
 - **`POST /api/swarm`** (SSE), streaming typed `agent.SwarmEvent`s: `plan`,
   `round`, `agent_start`, `token`, `agent_done`, `bus`, `done`, `error`.
-  `POST /api/team` is kept as an alias.
+  `POST /api/team` is kept as an alias. Swarm runs are saved as sessions,
+  transcript included.
 - CLI swarm renderer: parallel output is buffered per agent and printed as
   clean labelled blocks; the final synthesis streams live.
 - Tests for task parsing, diversity guarantees, handoff parsing, the full
-  swarm run and the SSE endpoint.
+  swarm run, the SSE endpoint, chunking and ranking, attachments, budgeting
+  and export.
 
 ### Changed
 
 - `vajra run --team` is now `--swarm` (`--team` still works).
 - The old sequential "team" runner was replaced by the swarm orchestrator.
+- `vajra serve` / `vajra web` bind to `127.0.0.1` instead of every interface.
+  `--host` opts out, with a warning: the server can read the folders you attach
+  or index.
+- `vajra doctor` reports the context budget and how many folders are indexed.
 
 ## [1.1.0] — 2026-10-17
 

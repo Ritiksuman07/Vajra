@@ -13,7 +13,25 @@ const state = {
   verify: false,
   swarm: false,
   busy: false,
+  // Local context: files read in the browser, and the folder being searched.
+  attachments: [],
+  ragDir: '',
+  ragChunks: 0,
+  ctxMax: 0,
+  ctxUsed: 0,
+  ctxDropped: 0,
 };
+
+// Browser-side limits mirror the server's, so nothing is silently dropped in
+// transit: 256 KiB per file, 16 files, 512 KiB in total.
+const FILE_MAX = 256 * 1024;
+const FILE_TOTAL = 512 * 1024;
+const FILE_COUNT = 16;
+
+function fmtK(n) {
+  if (!n) return '0';
+  return n < 1000 ? String(n) : (n / 1000).toFixed(1) + 'k';
+}
 
 /* ── tiny fetch helper ───────────────────────────────── */
 async function api(path, opts = {}) {
@@ -130,12 +148,30 @@ function addMsg(role, contentHTML, opts = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'msg';
   const emoji = role === 'user' ? '🧑' : (opts.emoji || '🛡️');
+  let extra = '';
+  if (opts.attachments && opts.attachments.length) {
+    extra = `<div class="attach-line">📎 ${opts.attachments.map(esc).join(', ')}</div>`;
+  }
+  if (opts.sources && opts.sources.length) {
+    extra += `<div class="source-line">📚 ${opts.sources.map(esc).join(', ')}</div>`;
+  }
   wrap.innerHTML = `<div class="avatar ${role}">${emoji}</div>
     <div class="bubble"><div class="who">${opts.who || (role === 'user' ? 'You' : 'Vajra')}
-    ${opts.badge || ''}</div><div class="body">${contentHTML}</div></div>`;
+    ${opts.badge || ''}</div><div class="body">${contentHTML}</div>${extra}</div>`;
   $('threadInner').appendChild(wrap);
   scrollDown();
   return wrap.querySelector('.body');
+}
+
+// swarmDetails renders a stored agent transcript as a collapsed panel, so a
+// re-opened session still shows what the agents said to each other.
+function swarmDetails(turns) {
+  if (!turns || !turns.length) return '';
+  const rows = turns.filter((t) => t.kind !== 'synthesis').map((t) =>
+    `<div class="bus-row"><span class="bus-who">${esc(t.from)} → ${esc(t.to === 'all' ? 'everyone' : t.to)}</span>
+     <span class="pill tiny">${esc(t.kind || '')}</span>
+     <pre class="bus-text">${esc(t.text || '')}</pre></div>`).join('');
+  return `<details class="bus"><summary>🐝 agent bus — ${turns.length} messages</summary>${rows}</details>`;
 }
 function addSys(text, isErr) {
   const d = document.createElement('div');
@@ -150,6 +186,137 @@ function scrollDown() {
   requestAnimationFrame(() => { t.scrollTop = t.scrollHeight; });
 }
 function hideWelcome() { const w = $('welcome'); if (w) w.remove(); }
+
+/* ── Attachments (read locally in the browser) ───────── */
+function totalBytes() {
+  return state.attachments.reduce((n, f) => n + f.content.length, 0);
+}
+
+async function addFiles(fileList) {
+  const files = Array.from(fileList || []);
+  for (const f of files) {
+    if (state.attachments.length >= FILE_COUNT) { toast(`At most ${FILE_COUNT} files`); break; }
+    if (f.size > FILE_MAX) { toast(`${f.name} is larger than 256 KiB — skipped`); continue; }
+    if (totalBytes() + f.size > FILE_TOTAL) { toast('Attachment budget (512 KiB) reached'); break; }
+    try {
+      const content = await f.text();
+      if (content.includes('\u0000')) { toast(`${f.name} looks binary — skipped`); continue; }
+      if (state.attachments.some((a) => a.name === f.name)) continue;
+      state.attachments.push({ name: f.name, content, bytes: f.size });
+    } catch { toast(`Could not read ${f.name}`); }
+  }
+  renderAttachments();
+}
+
+function renderAttachments() {
+  const el = $('attachments');
+  if (!el) return;
+  if (!state.attachments.length) { el.innerHTML = ''; el.classList.remove('show'); return; }
+  el.classList.add('show');
+  el.innerHTML = state.attachments.map((f, i) =>
+    `<span class="attach">📎 ${esc(f.name)}<button data-drop="${i}" title="remove">✕</button></span>`).join('') +
+    `<span class="attach-note">${state.attachments.length} file(s) · ${fmtK(totalBytes())} chars · read locally</span>`;
+  el.querySelectorAll('[data-drop]').forEach((n) =>
+    n.onclick = () => { state.attachments.splice(Number(n.dataset.drop), 1); renderAttachments(); });
+}
+
+/* Context meter + retrieval chip */
+function renderContext() {
+  const pill = $('ctxPill');
+  if (pill) {
+    pill.textContent = state.ctxMax
+      ? `ctx ${fmtK(state.ctxUsed || 0)}/${fmtK(state.ctxMax)}`
+      : 'ctx —';
+    pill.title = state.ctxDropped
+      ? `${state.ctxDropped} older message(s) were trimmed to fit the context window`
+      : 'How much of the model\'s context window this conversation uses';
+  }
+  const chip = $('ragChip');
+  if (chip) {
+    if (state.ragDir) {
+      const name = state.ragDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+      chip.textContent = `📚 ${name}`;
+      chip.classList.add('on');
+      chip.title = `Answering with passages from ${state.ragDir}`;
+    } else {
+      chip.textContent = '📚 Folder';
+      chip.classList.remove('on');
+      chip.title = 'Answer using passages from a folder on this machine';
+    }
+  }
+  syncChips();
+}
+
+/* ── Local folder (RAG) modal ───────────────────────── */
+function openRag() {
+  $('ragDir').value = state.ragDir || '';
+  $('ragProgress').textContent = '';
+  $('ragStatus').innerHTML = state.ragDir
+    ? `Searching <code>${esc(state.ragDir)}</code>${state.ragChunks ? ' · ' + state.ragChunks + ' passages' : ''}`
+    : 'No folder selected — retrieval is off.';
+  $('ragBack').classList.add('open');
+}
+function closeRag() { $('ragBack').classList.remove('open'); }
+
+async function ragRefresh(dir) {
+  try {
+    const d = await api('/api/rag?dir=' + encodeURIComponent(dir));
+    if (d.indexed) {
+      $('ragStatus').innerHTML = `✓ indexed · ${d.chunks} passages from ${d.files} files · <code>${esc(d.model || '')}</code>`;
+      return d;
+    }
+    $('ragStatus').innerHTML = 'Not indexed yet — press <strong>Index / re-index</strong>.';
+  } catch { $('ragStatus').textContent = 'Could not read the index status.'; }
+  return null;
+}
+
+async function ragIndex() {
+  const dir = $('ragDir').value.trim();
+  if (!dir) { toast('Enter a folder path'); return; }
+  const prog = $('ragProgress');
+  prog.textContent = 'Starting…';
+  let indexed = null;
+  try {
+    await streamSSE('/api/rag/index', { dir }, (ev) => {
+      if (ev.type === 'progress') {
+        if (ev.stage === 'reading') prog.textContent = `reading ${ev.done} files… ${ev.current || ''}`;
+        else prog.textContent = `embedding ${ev.done}/${ev.total} (${ev.total ? Math.round(ev.done * 100 / ev.total) : 0}%) ${ev.current || ''}`;
+      } else if (ev.type === 'done') {
+        indexed = ev;
+        prog.textContent = `✓ ${ev.chunks} passages from ${ev.files} files`;
+      } else if (ev.type === 'error') {
+        prog.textContent = '✗ ' + ev.error;
+        addSys('Indexing failed: ' + ev.error, true);
+      }
+    });
+  } catch (e) { prog.textContent = '✗ ' + e.message; return; }
+  if (indexed) {
+    await ragRefresh(dir);
+    toast('Indexed ' + indexed.files + ' files');
+  }
+}
+
+function ragUse() {
+  const dir = $('ragDir').value.trim();
+  if (!dir) { toast('Enter a folder path'); return; }
+  state.ragDir = dir;
+  api('/api/rag?dir=' + encodeURIComponent(dir)).then((d) => { state.ragChunks = d.chunks || 0; renderContext(); }).catch(() => {});
+  toast('Answers will cite passages from ' + dir);
+  closeRag();
+}
+function ragOff() {
+  state.ragDir = '';
+  state.ragChunks = 0;
+  renderContext();
+  toast('Retrieval off');
+  closeRag();
+}
+
+/* ── Export ─────────────────────────────────────────── */
+function exportSession() {
+  if (!state.sessionID) { toast('Send a message first — there is nothing to export yet'); return; }
+  window.location.href = '/api/sessions/' + state.sessionID + '/export?format=md';
+}
 
 /* ── Swarm rendering ─────────────────────────────────── */
 function agentMeta(role) {
@@ -197,12 +364,21 @@ function addHandoff(ev) {
   scrollDown();
 }
 // streamSwarm runs the multi-agent swarm for the given message.
-async function streamSwarm(text) {
+async function streamSwarm(text, files, ragDir) {
   const open = {};
-  await streamSSE('/api/swarm', { message: text, handoffs: 1, concurrent: 3 }, (ev) => {
+  await streamSSE('/api/swarm', {
+    message: text, handoffs: 1, concurrent: 3,
+    files: files || [], rag_dir: ragDir || '',
+  }, (ev) => {
     switch (ev.type) {
       case 'plan': addSwarmPlan(ev); break;
       case 'round': addSys('── ' + ev.text + ' ──'); break;
+      case 'context': annotateLast(ev); break;
+      case 'budget': {
+        state.ctxUsed = ev.used; state.ctxMax = ev.max || ev.limit || 0;
+        renderContext();
+        break;
+      }
       case 'agent_start': open[ev.role] = addAgentBubble(ev); break;
       case 'token': {
         const h = open[ev.role];
@@ -216,6 +392,7 @@ async function streamSwarm(text) {
         break;
       }
       case 'bus': if (ev.kind === 'handoff') addHandoff(ev); break;
+      case 'done': if (ev.session_id) state.sessionID = ev.session_id; break;
       case 'error': addSys('Error: ' + ev.error, true); break;
     }
   });
@@ -261,11 +438,14 @@ async function send() {
   state.busy = true;
   $('sendBtn').disabled = true;
 
-  addMsg('user', md(text), { who: 'You' });
+  addMsg('user', md(text), { who: 'You', attachments: state.attachments.map((f) => f.name) });
+
+  const files = state.attachments.map((f) => ({ name: f.name, content: f.content }));
+  const ragDir = state.ragDir;
 
   try {
     if (state.swarm) {
-      await streamSwarm(text);
+      await streamSwarm(text, files, ragDir);
       syncChips();
       return;
     }
@@ -276,9 +456,16 @@ async function send() {
 
     await streamSSE('/api/chat/stream', {
       message: text, model: state.model, agent: state.agent, verify: state.verify,
+      files, rag_dir: ragDir,
     }, (ev) => {
       if (ev.type === 'token') { acc += ev.text; paint(); }
       else if (ev.type === 'start' && ev.session_id) { state.sessionID = ev.session_id; }
+      else if (ev.type === 'context') { annotateLast(ev); }
+      else if (ev.type === 'budget') {
+        state.ctxUsed = ev.used; state.ctxMax = ev.max || ev.limit || 0; state.ctxDropped = ev.dropped || 0;
+        renderContext();
+        if (ev.dropped) addSys(`Trimmed ${ev.dropped} older message(s) to fit ${fmtK(state.ctxMax)} tokens`);
+      }
       else if (ev.type === 'verifying') { paint(true); }
       else if (ev.type === 'verification') {
         const r = ev.report;
@@ -296,6 +483,23 @@ async function send() {
     $('sendBtn').disabled = false;
     loadSessions();
   }
+}
+
+// annotateLast shows, under the message just sent, which local files and which
+// retrieved passages were actually used.
+function annotateLast(ev) {
+  const inner = $('threadInner');
+  const target = inner.lastElementChild;
+  if (!target) return;
+  const bits = [];
+  if ((ev.attachments || []).length) bits.push('📎 ' + ev.attachments.join(', '));
+  if ((ev.sources || []).length) bits.push('📚 ' + ev.sources.join(', '));
+  if (!bits.length) return;
+  const d = document.createElement('div');
+  d.className = 'sys note';
+  d.textContent = bits.join('  ·  ');
+  target.appendChild(d);
+  scrollDown();
 }
 
 function throttle(fn) {
@@ -324,11 +528,15 @@ async function openSession(id) {
     clearThread();
     $('threadTitle').textContent = s.title || 'Chat';
     (s.messages || []).forEach((m) => {
-      if (m.role === 'user') addMsg('user', md(m.content), { who: 'You' });
-      else if (m.role === 'assistant') {
+      if (m.role === 'user') {
+        addMsg('user', md(m.content), { who: 'You', attachments: m.attachments });
+      } else if (m.role === 'assistant') {
         let badge = '';
         if (m.verification) badge = `<span class="verify ${m.verification.needs_review ? 'review' : ''}">${m.verification.needs_review ? '⚠ review' : '✓ verified'} · ${Math.round(m.verification.score)}%</span>`;
-        addMsg('assistant', md(m.content), { who: m.agent || 'Vajra', badge });
+        const bodyEl = addMsg('assistant', md(m.content), {
+          who: m.agent || 'Vajra', badge, sources: m.sources,
+        });
+        if (m.swarm && m.swarm.length) bodyEl.parentElement.insertAdjacentHTML('beforeend', swarmDetails(m.swarm));
       }
     });
     renderSessions();
@@ -339,7 +547,8 @@ function newChat() {
   state.sessionID = null;
   clearThread();
   $('threadTitle').textContent = 'New chat';
-  location.reload === undefined; // no-op
+  state.ctxUsed = 0; state.ctxDropped = 0;
+  renderContext();
   const inner = $('threadInner');
   inner.innerHTML = welcomeHTML();
   bindSuggestions();
@@ -430,6 +639,7 @@ function syncChips() {
   $('verifyChip').classList.toggle('on', state.verify);
   $('teamChip').classList.toggle('on', state.swarm);
   $('teamBtn2').classList.toggle('on', state.swarm);
+  $('attachChip').classList.toggle('on', state.attachments.length > 0);
   $('input').placeholder = state.swarm
     ? 'Give the swarm a goal…  (agents will plan, work in parallel and review)'
     : 'Message Vajra…  (Enter to send · Shift+Enter for newline)';
@@ -472,6 +682,31 @@ async function boot() {
   $('verifyChip').onclick = () => { state.verify = !state.verify; syncChips(); };
   $('teamChip').onclick = () => { state.swarm = !state.swarm; syncChips(); };
   $('teamBtn2').onclick = () => { state.swarm = !state.swarm; syncChips(); };
+  $('exportBtn').onclick = exportSession;
+
+  // Attachments: picker plus drag-and-drop anywhere over the thread.
+  $('attachChip').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
+  const thread = $('thread');
+  ['dragenter', 'dragover'].forEach((ev) =>
+    thread.addEventListener(ev, (e) => { e.preventDefault(); thread.classList.add('dragging'); }));
+  ['dragleave', 'drop'].forEach((ev) =>
+    thread.addEventListener(ev, (e) => { e.preventDefault(); thread.classList.remove('dragging'); }));
+  thread.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+  // A file dropped on the composer should not navigate away.
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => e.preventDefault());
+
+  // Local folder retrieval.
+  $('ragChip').onclick = openRag;
+  $('ragClose').onclick = closeRag;
+  $('ragUse').onclick = ragUse;
+  $('ragOff').onclick = ragOff;
+  $('ragIndex').onclick = ragIndex;
+  $('ragBack').onclick = (e) => { if (e.target === $('ragBack')) closeRag(); };
+  $('ragDir').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); ragIndex(); }
+  });
   $('themeBtn').onclick = () => {
     const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.theme = next;
@@ -501,6 +736,8 @@ async function boot() {
 
   bindSuggestions();
   syncChips();
+  renderAttachments();
+  renderContext();
   setInterval(loadHealth, 20000);
   setInterval(loadSessions, 30000);
 }

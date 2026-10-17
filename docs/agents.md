@@ -86,6 +86,21 @@ bounded to one round and three requests so a chatty model cannot spiral.
   handoffs, then one synthesis.
 - **Honest failure.** If an agent errors, the event stream carries the error;
   the run is never silently truncated.
+- **The transcript is kept.** Every bus message is stored with the answer, so a
+  re-opened session still shows the conversation (`Ctrl+B`, the 🐝 panel in the
+  web UI, or `vajra export`).
+
+## Local context for a swarm
+
+A swarm is given the same local context as a single agent: attached files
+(📎 / `--file` / `@path`) are prepended to the goal, and if a folder is indexed
+(`/rag`, `--rag`, 📚) the closest passages are included with `file:line`
+citations. The agents see the retrieved passages as part of the goal, so the
+researcher can quote them and the reviewer can check the others against them.
+
+Because the whole goal is echoed as the plan message on the bus, an exported
+transcript shows exactly what the team was given — including the retrieved
+context. Nothing is summarised away.
 
 ## How routing works
 

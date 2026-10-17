@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/Ritiksuman07/Vajra/internal/llm"
 )
 
 // ── Palette ───────────────────────────────────────────
@@ -69,8 +71,11 @@ func (m *Model) viewChat() string {
 	if m.health {
 		status = "● ready"
 	}
-	head := fmt.Sprintf(" 🛡️  vajra %s   %s   %s %s   verify:%s swarm:%s ",
-		m.version, m.curModel, status, "", onOff(m.verifyOn), onOff(m.swarmOn))
+	head := fmt.Sprintf(" 🛡️  vajra %s  %s  %s  verify:%s swarm:%s ctx:%s ",
+		m.version, m.curModel, status, onOff(m.verifyOn), onOff(m.swarmOn), m.ctxMeter())
+	if extras := m.contextBadges(); extras != "" {
+		head = strings.TrimRight(head, " ") + "  " + extras + " "
+	}
 	b.WriteString(stHeader.Width(m.width).Render(head))
 	b.WriteString("\n")
 
@@ -94,8 +99,17 @@ func (m *Model) viewChat() string {
 		bar = " ⚠ " + m.err.Error()
 	} else if m.notice != "" {
 		bar = " " + m.notice
+	} else if m.attached != nil || m.ragDir != "" {
+		var bits []string
+		if len(m.attached) > 0 {
+			bits = append(bits, fmt.Sprintf("📎 %d file(s) → %s", len(m.attached), strings.Join(m.attached, ", ")))
+		}
+		if s := m.ragStatus(); s != "" {
+			bits = append(bits, s+" per prompt")
+		}
+		bar = " " + strings.Join(bits, " · ")
 	} else {
-		bar = " Ctrl+H help · Ctrl+M models · Ctrl+A agents · Ctrl+B bus · Ctrl+L sessions · Ctrl+V verify · Ctrl+T swarm · Ctrl+Q quit"
+		bar = " Ctrl+H help · Ctrl+M models · Ctrl+A agents · Ctrl+B bus · Ctrl+E export · Ctrl+T swarm · Ctrl+Q quit"
 	}
 	style := stFaint
 	if m.err != nil {
@@ -137,7 +151,12 @@ func (m *Model) renderMessages() string {
 			b.WriteString(stUser.Render("  You "))
 			b.WriteString("\n")
 			b.WriteString(wrap(msg.Content, contentW, stText))
-			b.WriteString("\n\n")
+			b.WriteString("\n")
+			if len(msg.Attachments) > 0 {
+				b.WriteString(stFaint.Render("  📎 " + strings.Join(msg.Attachments, ", ")))
+				b.WriteString("\n")
+			}
+			b.WriteString("\n")
 		case "system":
 			b.WriteString(stWarn.Render("  ⚠ " + wrapInline(msg.Content, contentW-4)))
 			b.WriteString("\n\n")
@@ -168,6 +187,18 @@ func (m *Model) renderMessages() string {
 				b.WriteString("\n")
 			} else if msg.Tokens > 0 {
 				b.WriteString(stFaint.Render(fmt.Sprintf("  %d tokens", msg.Tokens)))
+				b.WriteString("\n")
+			}
+			// The live swarm transcript is rendered above, next to the prompt
+			// that triggered it; a replayed session gets a pointer to the bus
+			// instead of duplicating the whole thing.
+			liveShown := i == m.swarmAfter+1 && len(m.swarmFeed) > 0
+			if len(msg.Swarm) > 0 && !liveShown {
+				b.WriteString(stFaint.Render(fmt.Sprintf("  🐝 agent bus — %d messages · Ctrl+B to read", len(msg.Swarm))))
+				b.WriteString("\n")
+			}
+			if len(msg.Sources) > 0 {
+				b.WriteString(stFaint.Render("  📚 sources: " + wrapInline(strings.Join(msg.Sources, ", "), contentW-16)))
 				b.WriteString("\n")
 			}
 			b.WriteString("\n")
@@ -355,10 +386,25 @@ func (m *Model) viewHelp() string {
 		{"/verify", "toggle the verification pipeline"},
 		{"/swarm (or /team)", "toggle the multi-agent swarm"},
 		{"/bus", "read the agent-to-agent message bus"},
+		{"/attach <path>", "attach a local file to the next prompt"},
+		{"/detach", "clear attached files"},
+		{"/rag <folder>", "search a local folder (indexes it first time)"},
+		{"/rag build <folder>", "re-index a folder"},
+		{"/rag off", "stop retrieving from a folder"},
+		{"/export [md|json]", "write this session to ~/.vajra/exports"},
 		{"/pull <model>", "download a model from Ollama"},
 		{"/new", "start a fresh session"},
 		{"/clear", "clear the current view"},
 		{"/exit", "quit Vajra"},
+	} {
+		b.WriteString(fmt.Sprintf("  %-24s %s\n", stKey.Render(c[0]), stMuted.Render(c[1])))
+	}
+	b.WriteString("\n")
+	b.WriteString(stTitle.Render("  Local context") + "\n")
+	for _, c := range [][2]string{
+		{"@path/to/file", "attach that file by mentioning it in a prompt"},
+		{"/rag <folder>", "passages are retrieved per prompt and cited"},
+		{"headroom", "older turns are trimmed to fit the context window"},
 	} {
 		b.WriteString(fmt.Sprintf("  %-24s %s\n", stKey.Render(c[0]), stMuted.Render(c[1])))
 	}
@@ -382,6 +428,7 @@ func (m *Model) viewHelp() string {
 		{"Ctrl+B", "agent bus"},
 		{"Ctrl+V", "toggle verify"},
 		{"Ctrl+T", "toggle swarm mode"},
+		{"Ctrl+E", "export this session (Markdown)"},
 		{"Ctrl+N", "new session"},
 		{"Ctrl+U", "clear view"},
 		{"↑/↓ PgUp/PgDn", "scroll"},
@@ -399,4 +446,37 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// ctxMeter shows how much of the model's context window the visible
+// conversation is using, so a long chat is never a surprise.
+func (m *Model) ctxMeter() string {
+	max := m.cfg.MaxContext
+	used := 0
+	for _, msg := range m.messages {
+		used += llm.EstimateMessageTokens(llm.Message{Content: msg.Content})
+	}
+	if max <= 0 {
+		return humanTokens(used)
+	}
+	return fmt.Sprintf("%s/%s", humanTokens(used), humanTokens(max))
+}
+
+// contextBadges shows the local-context extras that are switched on.
+func (m *Model) contextBadges() string {
+	var bits []string
+	if len(m.attached) > 0 {
+		bits = append(bits, fmt.Sprintf("📎%d", len(m.attached)))
+	}
+	if m.ragDir != "" {
+		bits = append(bits, fmt.Sprintf("📚%d", m.ragChunks))
+	}
+	return strings.Join(bits, " ")
+}
+
+func humanTokens(n int) string {
+	if n < 1000 {
+		return fmt.Sprintf("%d", n)
+	}
+	return fmt.Sprintf("%.1fk", float64(n)/1000)
 }

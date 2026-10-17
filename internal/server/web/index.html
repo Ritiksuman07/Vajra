@@ -58,7 +58,9 @@
       <button class="btn ghost menu-btn" id="menuBtn">☰</button>
       <div class="title" id="threadTitle">New chat</div>
       <div class="spacer"></div>
+      <span class="pill" id="ctxPill" title="How much of the model's context window this conversation uses">ctx —</span>
       <span class="pill" id="backendPill">ollama</span>
+      <button class="btn ghost" id="exportBtn" title="Download this conversation as Markdown">⬇ Export</button>
       <button class="btn ghost" id="teamBtn2" title="Run a swarm of agents on your next message">🐝 Swarm mode</button>
     </header>
 
@@ -88,17 +90,50 @@
 
     <div class="composer">
       <div class="composer-inner">
+        <div class="attachments" id="attachments"></div>
         <textarea id="input" rows="1" placeholder="Message Vajra…  (Enter to send · Shift+Enter for newline)"></textarea>
         <div class="composer-row">
           <span class="chip" id="verifyChip" title="Run the 4-layer verification pipeline">🛡️ Verify</span>
           <span class="chip" id="teamChip" title="Send this to a swarm of specialist agents that talk to each other">🐝 Swarm</span>
+          <span class="chip" id="attachChip" title="Attach local files — they are read in your browser and never uploaded">📎 Attach</span>
+          <span class="chip" id="ragChip" title="Answer using passages from a folder on this machine">📚 Folder</span>
           <span class="spacer"></span>
           <button class="btn primary" id="sendBtn">Send ↵</button>
         </div>
       </div>
-      <div class="hint">Vajra is local-first · nothing is sent anywhere unless you add a provider key</div>
+      <div class="hint">Vajra is local-first · attachments and indexed folders stay on this machine · drop files anywhere here</div>
     </div>
   </main>
+</div>
+
+<input type="file" id="fileInput" multiple hidden />
+
+<!-- ── Local folder (retrieval) modal ─────────────── -->
+<div class="modal-back" id="ragBack">
+  <div class="modal">
+    <h3>Answer from a folder</h3>
+    <div class="sub">Vajra indexes the folder on this machine and prepends the closest
+      passages to your prompts, each labelled with its file and line. Indexes live in
+      <code>~/.vajra/index</code> — no vector database, no upload.</div>
+
+    <div class="field" style="margin-bottom:10px;">
+      <label>Folder path (on the machine running Vajra)</label>
+      <input type="text" id="ragDir" placeholder="C:\projects\notes  or  ~/notes" />
+    </div>
+
+    <div class="row">
+      <button class="btn" id="ragIndex">⟳ Index / re-index</button>
+      <button class="btn primary" id="ragUse">Use this folder</button>
+      <button class="btn ghost" id="ragOff">Turn off</button>
+    </div>
+
+    <div class="rag-progress" id="ragProgress"></div>
+    <div class="rag-status" id="ragStatus"></div>
+
+    <div class="modal-actions">
+      <button class="btn" id="ragClose">Close</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── Settings modal ─────────────────────────────── -->

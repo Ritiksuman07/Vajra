@@ -25,6 +25,16 @@ type Verification struct {
 	Summary     string   `json:"summary,omitempty"`
 }
 
+// SwarmTurn is one message that agents exchanged during a swarm run. It is
+// stored with the assistant message so an exported transcript contains the
+// whole conversation, not just the final answer.
+type SwarmTurn struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Kind string `json:"kind"`
+	Text string `json:"text"`
+}
+
 // Message is one turn in a session.
 type Message struct {
 	Role         string        `json:"role"`
@@ -34,6 +44,12 @@ type Message struct {
 	Tokens       int           `json:"tokens,omitempty"`
 	At           int64         `json:"at"`
 	Verification *Verification `json:"verification,omitempty"`
+
+	// Attachments, Sources and Swarm record the extra context that produced
+	// an answer, so a session can be re-read (or exported) exactly as it ran.
+	Attachments []string    `json:"attachments,omitempty"`
+	Sources     []string    `json:"sources,omitempty"`
+	Swarm       []SwarmTurn `json:"swarm,omitempty"`
 }
 
 // Session is a conversation with metadata.

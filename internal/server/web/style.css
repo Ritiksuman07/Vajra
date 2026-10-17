@@ -242,6 +242,49 @@ select { cursor: pointer; }
   margin: 6px auto 20px; max-width: 640px;
 }
 .sys.error { color: var(--danger); }
+.sys.note { text-align: left; margin: 6px 0 0 44px; font-size: 12px; }
+
+/* ── Local context: attachments, sources, agent bus ──── */
+.msg .attach-line, .msg .source-line {
+  font-size: 12px; color: var(--faint); margin-top: 8px;
+  border-top: 1px dashed var(--border); padding-top: 6px;
+}
+.msg .source-line { margin-top: 4px; border-top: none; padding-top: 0; color: var(--accent-2); }
+
+.attachments { display: none; flex-wrap: wrap; gap: 6px; padding: 4px 4px 8px; }
+.attachments.show { display: flex; align-items: center; }
+.attach {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 3px 6px 3px 9px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+}
+.attach button {
+  background: none; border: none; color: var(--faint); cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 2px 3px; border-radius: 50%;
+}
+.attach button:hover { color: var(--danger); }
+.attach-note { font-size: 11.5px; color: var(--faint); margin-left: 4px; }
+
+#thread.dragging { outline: 2px dashed var(--accent); outline-offset: -12px; background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+.bus { margin: 10px 44px 22px; font-size: 13px; }
+.bus summary {
+  cursor: pointer; font-size: 12px; color: var(--accent-2);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.bus-row { margin: 10px 0 0; border-left: 2px solid var(--border); padding-left: 10px; }
+.bus-who { font-size: 12.5px; font-weight: 600; margin-right: 6px; }
+.bus-text {
+  white-space: pre-wrap; font-size: 12.5px; color: var(--muted);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 10px; margin: 6px 0 0; max-height: 260px; overflow: auto;
+}
+
+.rag-progress { font-size: 12.5px; color: var(--muted); min-height: 18px; margin-bottom: 6px; word-break: break-all; }
+.rag-status { font-size: 12.5px; color: var(--faint); }
+.rag-status code { font-size: 12px; }
 
 /* ── Swarm ───────────────────────────────────────────── */
 .swarm-plan {

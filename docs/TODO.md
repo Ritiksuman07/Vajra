@@ -21,7 +21,53 @@ kept so contributors can see the direction of travel.
 - [x] Tests: task parsing, diversity guarantee, handoff parsing, full swarm
       run, SSE endpoint
 
+## ✅ Shipped — local context (attachments, retrieval, budgeting, export)
+
+**File attachments**
+
+- [x] `internal/attach`: read local files, skip binaries and oversized files,
+      report every skip instead of dropping it silently
+- [x] TUI: `/attach <path>`, `/detach`, and `@path/to/file` inside a prompt
+- [x] Web UI: 📎 picker and drag-and-drop; the browser reads the file and sends
+      the text, so the server never opens a path on your behalf
+- [x] CLI: repeatable `--file` (or comma-separated), with a skip report
+- [x] API: `files: [{name, content}]` on `/api/chat` and `/api/swarm`
+
+**Retrieval over a local folder**
+
+- [x] `internal/rag`: walk → chunk (line-aware, overlapping) → embed → JSON
+      index under `~/.vajra/index`; cosine search; `path:line` citations
+- [x] Ignores build output, dependencies and dot-directories; bounded files,
+      chunks and size; 4-way embedding pool
+- [x] CLI: `vajra index <folder>` and `vajra rag <folder> "query"`
+- [x] TUI: `/rag <folder>` (indexes on first use), `/rag build`, `/rag off` —
+      retrieval runs per prompt and the sources are listed under the answer
+- [x] Web UI: 📚 folder panel with live indexing progress; sources shown under
+      each answer
+- [x] API: `GET /api/rag`, `POST /api/rag/index` (SSE progress), `DELETE /api/rag`
+- [x] Retrieved passages are also handed to the verification pipeline
+
+**Context window budgeting**
+
+- [x] `internal/llm/budget.go`: token estimation, headroom, whole-turn
+      trimming that keeps the system prompt and the final question
+- [x] Applied in one place (`agent.Runner.build`), so TUI, web and CLI all
+      trim identically; `Router.Chat` passes the real `num_ctx`
+- [x] `VAJRA_MAX_CONTEXT` (default 8192); `vajra doctor` prints it
+- [x] Surfaced in the TUI header (`ctx 2.1k/8.2k`) and the web UI
+      (`budget` SSE event, plus a notice when older turns were trimmed)
+
+**Session export**
+
+- [x] `session.Message` records attachments, retrieved sources and the swarm
+      transcript, so a stored session can be re-read exactly as it ran
+- [x] `vajra export [<id>] [--format md|json] [--out <path>]`
+- [x] TUI: `/export` and `Ctrl+E` → `~/.vajra/exports/`
+- [x] Web UI: ⬇ Export, and the agent bus is still readable when a session is
+      re-opened
+
 ## ✅ Shipped — v1.1.0 rewrite
+
 
 **Core**
 
@@ -63,16 +109,13 @@ kept so contributors can see the direction of travel.
 
 ## 🔜 Next
 
-- [ ] Conversation context window management (token budgeting / trimming)
-- [ ] File attachments (drag a file into the web UI, `@file` in the TUI)
-- [ ] Retrieval-augmented chat over a local folder (embeddings + cosine search)
 - [ ] Tool calling (shell, files) behind an explicit allow-list + sandbox
-- [ ] Session export to Markdown / JSON from both UIs
 - [ ] Homebrew tap + `winget` / `scoop` manifests
 - [ ] Signed binaries (Windows code signing, macOS notarisation)
 - [ ] Plugin API for custom agents
 - [ ] i18n for the web UI
 - [ ] Benchmark suite comparing verification modes
+- [ ] Incremental re-indexing (only changed files) for large folders
 
 ## 💡 Ideas (not committed)
 

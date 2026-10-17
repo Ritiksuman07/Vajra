@@ -6,6 +6,8 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,8 +18,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Ritiksuman07/Vajra/internal/agent"
+	"github.com/Ritiksuman07/Vajra/internal/attach"
 	"github.com/Ritiksuman07/Vajra/internal/config"
 	"github.com/Ritiksuman07/Vajra/internal/llm"
+	"github.com/Ritiksuman07/Vajra/internal/rag"
 	"github.com/Ritiksuman07/Vajra/internal/session"
 	"github.com/Ritiksuman07/Vajra/internal/verify"
 )
@@ -41,6 +45,13 @@ type tokenMsg struct{ text string }
 
 // swarmMsg carries one event from the swarm engine to the UI.
 type swarmMsg struct{ ev agent.SwarmEvent }
+
+// sourcesMsg reports the passages local retrieval contributed to a prompt.
+type sourcesMsg struct {
+	dir     string
+	sources []string
+	err     error
+}
 
 type genDoneMsg struct {
 	err    error
@@ -105,6 +116,13 @@ type Model struct {
 	swarmAgents  []string
 	swarmAfter   int
 	swarmRunning bool
+
+	// Local context: files attached to the next prompt, the folder being
+	// searched, and the sources the last answer used.
+	attached   []string
+	ragDir     string
+	ragChunks  int
+	curSources []string
 }
 
 // Run starts the TUI and blocks until the user quits.
@@ -195,6 +213,9 @@ func (m *Model) generate(prompt string) tea.Cmd {
 	if m.streaming {
 		return nil
 	}
+	// Anything the user attached (/attach or an @path mention) is read locally.
+	files := m.collectAttachments(prompt)
+
 	history := m.sess.History(16)
 	llmsgs := make([]llm.Message, 0, len(history))
 	for _, h := range history {
@@ -202,12 +223,16 @@ func (m *Model) generate(prompt string) tea.Cmd {
 	}
 
 	m.messages = append(m.messages,
-		session.Message{Role: "user", Content: prompt},
+		session.Message{Role: "user", Content: prompt, Attachments: attachNames(files)},
 		session.Message{Role: "assistant", Model: m.curModel, Agent: m.curAgent},
 	)
 	m.acc.Reset()
 	m.streaming = true
 	m.err = nil
+	m.curSources = nil
+	if n := attachNotice(files); n != "" {
+		m.notice = n
+	}
 
 	// Swarm mode renders its own transcript between the prompt and the answer.
 	m.swarmAfter = len(m.messages) - 2
@@ -218,12 +243,14 @@ func (m *Model) generate(prompt string) tea.Cmd {
 	m.swarmRunning = m.swarmOn
 	m.refresh()
 
-	ch := make(chan tea.Msg, 128)
+	ch := make(chan tea.Msg, 256)
 	m.ch = ch
 
 	role := m.curAgent
 	model := m.curModel
 	swarm := m.swarmOn
+	ragDir := m.ragDir
+	ctxTokens := m.cfg.MaxContext
 	runner := m.runner
 	router := m.router
 	cfg := m.cfg
@@ -232,8 +259,25 @@ func (m *Model) generate(prompt string) tea.Cmd {
 		defer cancel()
 		defer close(ch)
 
+		// Attached files first, then retrieved passages, then the question.
+		// Ending with the question matters: it is the part Vajra keeps if the
+		// prompt has to be trimmed to fit the context window.
+		grounding := attach.Grounding(files, 4000)
+		input := prompt
+		if block := attach.Block(files); block != "" {
+			input = block + "\n\n" + input
+		}
+		if ragDir != "" {
+			hits, err := m.searchRAG(ctx, ragDir, prompt)
+			if len(hits) > 0 {
+				input = rag.Context(hits, ctxTokens/3) + "\n\n" + input
+				grounding = rag.Grounding(hits, 4000)
+			}
+			ch <- sourcesMsg{dir: ragDir, sources: rag.Sources(hits), err: err}
+		}
+
 		if swarm {
-			res, err := runner.RunSwarm(ctx, prompt, agent.SwarmOptions{Handoffs: 1, Concurrent: 3},
+			res, err := runner.RunSwarm(ctx, input, agent.SwarmOptions{Handoffs: 1, Concurrent: 3},
 				func(ev agent.SwarmEvent) { ch <- swarmMsg{ev} })
 			done := genDoneMsg{err: err, swarm: true}
 			if res != nil {
@@ -243,7 +287,7 @@ func (m *Model) generate(prompt string) tea.Cmd {
 			return
 		}
 
-		resp, err := runner.RunModel(ctx, role, model, llmsgs, prompt, func(tok string) error {
+		resp, err := runner.RunModel(ctx, role, model, llmsgs, input, func(tok string) error {
 			ch <- tokenMsg{tok}
 			return nil
 		})
@@ -255,6 +299,7 @@ func (m *Model) generate(prompt string) tea.Cmd {
 			content := resp.Content
 			done.report = verify.Run(ctx, content, verify.Options{
 				Router: router, JudgeModel: cfg.GetJudgeModel(), MinScore: 70,
+				Context: grounding,
 			})
 		}
 		ch <- done
@@ -304,6 +349,41 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refresh()
 		return m, waitFor(m.ch)
 
+	case sourcesMsg:
+		switch {
+		case msg.err != nil:
+			m.notice = "📚 retrieval failed: " + msg.err.Error()
+		case len(msg.sources) > 0:
+			m.curSources = msg.sources
+			m.notice = fmt.Sprintf("📚 %d passage(s) retrieved from %s", len(msg.sources), filepath.Base(msg.dir))
+		default:
+			m.notice = "📚 no passages matched — answering from the prompt alone"
+		}
+		m.refresh()
+		return m, waitFor(m.ch)
+
+	case ragIndexedMsg:
+		if msg.err != nil {
+			m.err = fmt.Errorf("indexing %s: %w", msg.dir, msg.err)
+			m.ragDir = ""
+			m.refresh()
+			return m, nil
+		}
+		m.ragDir = msg.dir
+		m.ragChunks = msg.chunks
+		m.notice = fmt.Sprintf("📚 indexed %s — %d passages from %d files", msg.dir, msg.chunks, msg.files)
+		m.refresh()
+		return m, nil
+
+	case exportedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+		} else {
+			m.notice = "💾 exported to " + msg.path
+		}
+		m.refresh()
+		return m, nil
+
 	case genDoneMsg:
 		if m.ch == nil {
 			return m, nil // already finished
@@ -320,10 +400,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.messages[n-1].Content = msg.final
 				m.messages[n-1].Agent = "swarm"
 				m.messages[n-1].Tokens = msg.tokens
+				// Keep the agent bus so the conversation can be re-read and
+				// exported with everything the agents said to each other.
+				m.messages[n-1].Swarm = swarmTurns(m.swarmBus)
 			} else {
 				m.messages[n-1].Content = m.acc.String()
 				m.messages[n-1].Tokens = msg.tokens
 			}
+			m.messages[n-1].Sources = m.curSources
 			if msg.report != nil {
 				m.messages[n-1].Verification = &session.Verification{
 					Score:       msg.report.Score,
@@ -334,9 +418,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.swarmOpen = map[string]int{}
-		// Persist.
-		m.sess.Add(session.Message{Role: "user", Content: lastUser(m.messages)})
-		m.sess.Add(m.messages[len(m.messages)-1])
+		// Persist the turn exactly as it was shown (prompt, attachments,
+		// sources and the swarm transcript included).
+		if n := len(m.messages); n >= 2 {
+			m.sess.Add(m.messages[n-2])
+			m.sess.Add(m.messages[n-1])
+		}
 		_ = m.store.Save(m.sess)
 		m.refresh()
 		return m, loadSessions(m.store)
@@ -441,6 +528,10 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.screen = scrSwarm
 		m.refresh()
 		return m, nil
+	case "ctrl+e":
+		format := "md"
+		m.notice = "exporting…"
+		return m, m.exportCmd(format)
 	case "ctrl+u":
 		m.messages = nil
 		m.refresh()
@@ -505,6 +596,9 @@ func (m *Model) selectCurrent() (tea.Model, tea.Cmd) {
 				m.sess = s
 				m.messages = s.Messages
 				m.curModel = s.Model
+				m.swarmBus = lastSwarmBus(s.Messages)
+				m.swarmFeed = nil
+				m.swarmAfter = -1
 				m.notice = "loaded " + s.Title
 			}
 		}
@@ -562,6 +656,30 @@ func (m *Model) runSlash(text string) tea.Cmd {
 	case "/bus":
 		m.screen = scrSwarm
 		m.refresh()
+	case "/attach", "/file":
+		if arg == "" {
+			m.notice = fmt.Sprintf("attached: %s", strings.Join(m.attached, ", "))
+			if len(m.attached) == 0 {
+				m.notice = "usage: /attach <path> — or mention @path/to/file in a prompt"
+			}
+		} else if fi, err := os.Stat(strings.Trim(arg, `"`)); err != nil || fi.IsDir() {
+			m.err = fmt.Errorf("cannot attach %q", arg)
+		} else {
+			m.attached = append(m.attached, strings.Trim(arg, `"`))
+			m.notice = fmt.Sprintf("📎 %d file(s) attached — /detach to clear", len(m.attached))
+		}
+	case "/detach":
+		m.attached = nil
+		m.notice = "attachments cleared"
+	case "/rag":
+		m.ragSlash(arg)
+	case "/export":
+		format := arg
+		if format == "" {
+			format = "md"
+		}
+		m.notice = "exporting…"
+		return m.exportCmd(format)
 	case "/new":
 		m.newSession()
 	case "/clear":
