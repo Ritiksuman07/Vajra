@@ -486,19 +486,20 @@ async function send() {
 }
 
 // annotateLast shows, under the message just sent, which local files and which
-// retrieved passages were actually used.
+// retrieved passages were actually used. In swarm mode the last element may be
+// the plan card rather than a message, so the note stands on its own there.
 function annotateLast(ev) {
-  const inner = $('threadInner');
-  const target = inner.lastElementChild;
-  if (!target) return;
   const bits = [];
   if ((ev.attachments || []).length) bits.push('📎 ' + ev.attachments.join(', '));
   if ((ev.sources || []).length) bits.push('📚 ' + ev.sources.join(', '));
   if (!bits.length) return;
+  const inner = $('threadInner');
+  const target = inner.lastElementChild;
   const d = document.createElement('div');
   d.className = 'sys note';
   d.textContent = bits.join('  ·  ');
-  target.appendChild(d);
+  if (target && target.classList.contains('msg')) target.appendChild(d);
+  else inner.appendChild(d);
   scrollDown();
 }
 
