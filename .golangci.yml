@@ -17,10 +17,25 @@ linters-settings:
       - name: exported
         disabled: true
   misspell:
-    # The prose in this project (README, docs, comments) is written in British
-    # English throughout, so the linter is set to match it. Otherwise every
-    # "behaviour" and "labelled" is reported as a typo.
-    locale: UK
+    # The prose here (README, docs, comments) is British, but Go code is full
+    # of American identifiers we cannot rename — lipgloss.Color, color.RGBA —
+    # and the linter checks whole lines, not just comments. So keep the US
+    # locale (which leaves Color alone) and allow the British words we write on
+    # purpose, one by one.
+    locale: US
+    ignore-words:
+      - analyses
+      - behaviour
+      - finalise
+      - labelled
+      - serialise
+      - serialised
+      - serialises
+      - summarise
+      - summarises
+      - synthesise
+      - synthesised
+      - synthesising
 
 issues:
   exclude-rules:
