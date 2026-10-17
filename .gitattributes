@@ -1,0 +1,23 @@
+# Normalise line endings: LF in the repository and in checkouts.
+# This keeps `gofmt -l .` clean on every platform.
+* text=auto eol=lf
+
+# PowerShell scripts are text too (LF is fine for PS 5.1 and 7+).
+*.ps1 text eol=lf
+
+# Binary assets — never convert.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.icns binary
+*.exe  binary
+*.dll  binary
+*.so   binary
+*.dylib binary
+*.gz   binary
+*.zip  binary
+*.AppImage binary
+*.deb  binary
+*.rpm  binary
