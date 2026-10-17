@@ -448,15 +448,6 @@ func (m *Model) updateAssistant() {
 	}
 }
 
-func lastUser(msgs []session.Message) string {
-	for i := len(msgs) - 1; i >= 0; i-- {
-		if msgs[i].Role == "user" {
-			return msgs[i].Content
-		}
-	}
-	return ""
-}
-
 func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global quit.
 	switch k.String() {

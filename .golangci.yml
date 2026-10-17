@@ -17,7 +17,10 @@ linters-settings:
       - name: exported
         disabled: true
   misspell:
-    locale: US
+    # The prose in this project (README, docs, comments) is written in British
+    # English throughout, so the linter is set to match it. Otherwise every
+    # "behaviour" and "labelled" is reported as a typo.
+    locale: UK
 
 issues:
   exclude-rules:

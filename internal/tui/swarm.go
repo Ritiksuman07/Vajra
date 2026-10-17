@@ -121,7 +121,7 @@ func (m *Model) renderSwarm(width int) string {
 				stMuted.Render("  asked for help: "+wrapInline(it.Text.String(), width-30)) + "\n\n")
 		case "agent":
 			emoji, name := roleParts(it.Role)
-			arrow := "→ everyone"
+			var arrow string
 			switch it.To {
 			case "user":
 				arrow = "→ you"

@@ -29,6 +29,10 @@ import (
 )
 
 // Embedder is satisfied by llm.Router.
+//
+// Embed is called concurrently: Build embeds chunks from several worker
+// goroutines at once, so implementations must be safe for concurrent use.
+// llm.Router qualifies because a call keeps no state of its own.
 type Embedder interface {
 	Embed(ctx context.Context, text string) ([]float64, error)
 }

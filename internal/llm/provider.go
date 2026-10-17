@@ -195,7 +195,7 @@ func (c *Cloud) openAIChat(ctx context.Context, req ChatRequest) (*Response, err
 func toOpenAIMessages(msgs []Message) []openAIMessage {
 	out := make([]openAIMessage, 0, len(msgs))
 	for _, m := range msgs {
-		out = append(out, openAIMessage{Role: m.Role, Content: m.Content})
+		out = append(out, openAIMessage(m))
 	}
 	return out
 }

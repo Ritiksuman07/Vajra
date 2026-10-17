@@ -14,13 +14,15 @@ import (
 // good embedding model, but it is enough to prove that retrieval ranks the
 // passage that shares words with the query first — and it keeps the tests
 // hermetic (no Ollama required).
+//
+// It holds no mutable state on purpose: Build calls Embed from several worker
+// goroutines at once, so an embedder with a counter or a cache would need its
+// own lock (and a race in a test helper is still a race).
 type fakeEmbedder struct {
-	err   error
-	calls int
+	err error
 }
 
 func (f *fakeEmbedder) Embed(ctx context.Context, text string) ([]float64, error) {
-	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -299,14 +301,23 @@ func TestCosine(t *testing.T) {
 func TestStorePathIsStableAndDistinct(t *testing.T) {
 	st := NewStore(t.TempDir())
 	a, b := t.TempDir(), t.TempDir()
-	if st.Path(a) != st.Path(a) {
-		t.Error("Path must be stable for the same folder")
+
+	// The index file name must be a pure function of the folder: two calls, and
+	// a fresh Store, have to agree — otherwise an index saved in one run would
+	// not be found in the next, which is the whole point of the store. The
+	// directory part does follow the store, so compare file names.
+	first := st.Path(a)
+	if second := st.Path(a); second != first {
+		t.Errorf("Path must be stable for the same folder: %q vs %q", first, second)
 	}
-	if st.Path(a) == st.Path(b) {
+	if again := filepath.Base(NewStore(t.TempDir()).Path(a)); again != filepath.Base(first) {
+		t.Errorf("index file name must not depend on the store dir: %q vs %q", again, filepath.Base(first))
+	}
+	if st.Path(b) == first {
 		t.Error("different folders must not share an index file")
 	}
-	if !strings.HasSuffix(st.Path(a), ".json") {
-		t.Errorf("index path = %q", st.Path(a))
+	if !strings.HasSuffix(first, ".json") {
+		t.Errorf("index path = %q", first)
 	}
 	if err := st.Remove(a); err != nil {
 		t.Errorf("Remove on a missing index should be a no-op, got %v", err)

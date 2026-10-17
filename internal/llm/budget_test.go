@@ -3,6 +3,7 @@ package llm
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestEstimateTokens(t *testing.T) {
@@ -110,20 +111,10 @@ func TestTrimDoesNotSplitRunes(t *testing.T) {
 	res := b.Trim([]Message{{Role: RoleUser, Content: msg}})
 	got := res.Messages[0].Content
 	for i := 0; i < len(got); {
-		r, size := decodeRune(got[i:])
-		if r == 0xFFFD && size == 1 {
+		r, size := utf8.DecodeRuneInString(got[i:])
+		if r == utf8.RuneError && size == 1 {
 			t.Fatalf("broken rune at byte %d of %q", i, got)
 		}
 		i += size
 	}
-}
-
-func decodeRune(s string) (rune, int) {
-	for i, r := range s {
-		if i == 0 {
-			return r, len(string(r))
-		}
-		break
-	}
-	return 0, 1
 }
