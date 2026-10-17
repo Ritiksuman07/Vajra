@@ -1,159 +1,108 @@
-# Vajra — Setup Guide
+# Setup
 
-## Prerequisites
+Vajra is a single binary. It talks to a local model server — by default
+[Ollama](https://ollama.com). Setup is three steps.
 
-### 1. Install Ollama (Local LLM)
+## 1. Install a model server (Ollama)
+
+| Platform | Command |
+|----------|---------|
+| Windows | Download from <https://ollama.com/download/windows> |
+| macOS | `brew install ollama` or download from <https://ollama.com/download> |
+| Linux | `curl -fsSL https://ollama.com/install.sh \| sh` |
+
+Start it and pull a model:
+
 ```bash
-# Linux/macOS
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# macOS
-brew install ollama
-
-# Windows
-# Download from https://ollama.ai/download/windows
-```
-
-### 2. Pull Models
-```bash
-# Chief of Staff (planning, delegation)
-ollama pull llama3.1:70b
-
-# Coder (code generation)
-ollama pull deepseek-coder-v2
-
-# Researcher (analysis, synthesis)
+ollama serve            # usually already running as a service
 ollama pull llama3.1:8b
-
-# Executor (fast tasks)
-ollama pull phi-3.5-mini
 ```
 
-### 3. Start Ollama Service
-```bash
-ollama serve &
-```
+Recommended local models:
 
-### 4. Install Vajra
-```bash
-# Linux/macOS
-curl -fsSL https://vajra.ai/install | sh
+| Model | Size | Best for |
+|-------|------|----------|
+| `llama3.1:8b` | ~4.7 GB | General chat, good default |
+| `qwen2.5-coder:7b` | ~4.7 GB | Code |
+| `phi3.5` | ~2.2 GB | Fast, low-RAM machines |
+| `nomic-embed-text` | ~274 MB | Verification (semantic layer) |
 
-# Or build from source
-git clone https://github.com/yourorg/vajra
-cd vajra
-make install
-```
+## 2. Install Vajra
 
-### 5. Start Vajra Service
-```bash
-vajra service start
-# or: vajra --standalone
-```
+**Windows** — run `VajraSetup-<version>-win-x64.exe`.
 
-### 6. Use Vajra
-```bash
-# Interactive TUI
-vajra
-
-# One-shot task
-vajra run "create a Python REST API with tests"
-
-# Check agents
-vajra agents list
-
-# Connect cloud providers (optional)
-vajra connect --add openai --key sk-...
-```
-
-## Docker Compose (Full Stack)
+**Linux / macOS**
 
 ```bash
-docker compose up -d
+curl -fsSL https://raw.githubusercontent.com/Ritiksuman07/Vajra/main/scripts/install.sh | bash
 ```
 
-## Development
+**From source** (needs [Go 1.24+](https://go.dev/dl/))
 
 ```bash
-# Install dependencies
-pip install -e ".[dev]"
-
-# Run tests
-make test
-
-# Start service
-make start-service
+git clone https://github.com/Ritiksuman07/Vajra
+cd Vajra
+make build          # → dist/vajra
+# optionally
+make install        # → $GOPATH/bin/vajra
 ```
 
-## Architecture
+## 3. Run
 
+```bash
+vajra doctor        # verify everything is wired up
+vajra               # terminal UI
 ```
-┌─────────────────────────────────────────────┐
-│                 Vajra                        │
-├─────────────────────────────────────────────┤
-│  CLI/TUI (Go)                                │
-│  └── Commands: run, connect, agents, models  │
-├─────────────────────────────────────────────┤
-│  Background Service (Go)                     │
-│  └── REST API on localhost:4096             │
-│  └── Pod lifecycle management                │
-│  └── SQLite for sessions, auth, state       │
-├─────────────────────────────────────────────┤
-│  Agent Pods (Python in Docker)               │
-│  └── Chief of Staff (llama3.1:70b)           │
-│  └── Coder (deepseek-coder-v2)               │
-│  └── Researcher (llama3.1:8b)                │
-│  └── Executor (phi-3.5-mini)                 │
-│  └── Reviewer (llama3.1:8b)                  │
-├─────────────────────────────────────────────┤
-│  MCP Servers (JSON-RPC 2.0)                  │
-│  └── file-system, shell, code-exec, git      │
-│  └── knowledge-graph (Neo4j)                 │
-├─────────────────────────────────────────────┤
-│  Local Models (Ollama/LM Studio/llama.cpp)   │
-│  └── Zero cloud calls by default             │
-│  └── /connect for optional cloud providers   │
-├─────────────────────────────────────────────┤
-│  Anti-Hallucination (4 layers, all local)     │
-│  └── Layer 1: Fast checks                    │
-│  └── Layer 2: Semantic similarity            │
-│  └── Layer 3: LLM-as-a-Judge                 │
-│  └── Layer 4: Human escalation               │
-└─────────────────────────────────────────────┘
+
+Or try the web UI:
+
+```bash
+vajra web
 ```
 
 ## Configuration
 
-Edit `~/.config/vajra/config.yaml`:
+Config lives at `~/.vajra/config.json`
+(`%USERPROFILE%\.vajra\config.json` on Windows).
 
-```yaml
-service:
-  port: 4096
-  data_dir: ~/.local/share/vajra
-  log_level: info
-
-models:
-  default_backend: ollama
-  ollama:
-    host: http://localhost:11434
-    default_model: llama3.1:8b
-
-agents:
-  max_pods: 8
-  default_resources:
-    cpu: "2"
-    memory: "4g"
-
-mcp:
-  servers:
-    - name: file-system
-      enabled: true
-    - name: shell
-      enabled: true
-    - name: git
-      enabled: true
-    - name: code-exec
-      enabled: true
-    - name: knowledge-graph
-      enabled: true
+```bash
+vajra config                                  # show
+vajra config --set model=llama3.1:8b          # change model
+vajra config --set verify=true                # enable verification
+vajra config --set ollama_host=http://other:11434
 ```
+
+Sessions are stored as readable JSON in `~/.vajra/sessions/`.
+
+## Optional: cloud providers
+
+Vajra is local-first, but you can add a cloud key if you want to.
+
+```bash
+vajra connect openai sk-...
+vajra connect anthropic sk-ant-...
+vajra connect openrouter sk-or-...
+vajra connect groq gsk_...
+vajra connect lmstudio            # local, OpenAI-compatible on :1234
+```
+
+Then select a cloud model:
+
+```bash
+vajra run --model gpt-4o "hello"
+```
+
+Routing is automatic — `claude-*` goes to Anthropic, `gpt-*` to OpenAI,
+`vendor/model` to OpenRouter, everything else to Ollama.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `doctor` says Ollama not reachable | Run `ollama serve`; check `ollama_host` |
+| `no models — start Ollama` | `ollama pull llama3.1:8b` |
+| Semantic verification skipped | `ollama pull nomic-embed-text` |
+| Very slow answers | Use a smaller model (`phi3.5`) or reduce context |
+| Windows SmartScreen warning | Unsigned build — *More info* → *Run anyway* |
+
+See [FAQ.md](FAQ.md) for more.

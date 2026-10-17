@@ -1,152 +1,112 @@
-# Contributing to Vajra — Local AI Agents for Everyone
+# Contributing to Vajra
 
-We're thrilled you want to contribute to **Vajra** — a local-first, offline-capable, multi-agent system built for developers who care about privacy and autonomy.
+Thanks for wanting to help! Vajra is a local-first AI agent workspace written
+in Go. Contributions of every size are welcome — code, docs, design, bug
+reports and ideas.
 
-Whether you're fixing a typo, improving performance, or adding new integrations, your help matters.
+## Ways to contribute
 
----
+**Engineering**
+- Improve streaming, UI responsiveness and terminal rendering
+- Add model backends (llama.cpp, vLLM, Hugging Face endpoints)
+- Improve the verification pipeline (better semantic checks, calibration)
+- Add tool calling behind a sandbox + allow-list
+- Sharpen packaging, installers and cross-platform builds
 
-## Table of Contents
+**Documentation & design**
+- Improve the [docs](docs/) and write tutorials
+- Polish the web UI (`internal/server/web/`) or the TUI (`internal/tui/`)
+- Create demo GIFs and README visuals
+- Translate docs
 
-1. [Ways to Contribute](#ways-to-contribute)
-2. [Reporting Issues](#reporting-issues)
-3. [Development Setup](#development-setup)
-4. [Submitting Changes](#submitting-changes)
-5. [Code Style](#code-style)
-6. [Testing](#testing)
-7. [Help Wanted](#help-wanted)
-8. [License](#license)
+**Research**
+- Better trust scoring and judge calibration
+- Cheaper local embeddings / retrieval
 
----
+## Reporting issues
 
-## Ways to Contribute
+1. Search [existing issues](https://github.com/Ritiksuman07/Vajra/issues) first.
+2. If new, use a template and include:
+   - what you expected vs. what happened,
+   - exact commands,
+   - the output of `vajra doctor`,
+   - OS, Go version and model name.
 
-Here are some ways you can contribute to Vajra:
+Security issues: follow [SECURITY.md](SECURITY.md) — **do not** open a public issue.
 
-### 🛠️ Engineering
-- Improve agent reasoning loops
-- Add support for new LLM backends (llama.cpp, HuggingFace, etc.)
-- Optimize verification pipeline speed/memory
-- Add MCP server plugins
-- Improve installer pipelines
+## Development setup
 
-### 📚 Documentation
-- Improve setup guides (`docs/`)
-- Write tutorials (e.g., "Build your own AI team")
-- Translate docs to other languages
-- Create YouTube/GIF demos
-
-### 🎨 Design/UI
-- Improve web dashboard (`ui/web/`)
-- Create better README visuals
-- Build terminal UI themes for TUI (`cli/tui/`)
-
-### 🧠 AI Research
-- Improve anti-hallucination verification
-- Add new trust scoring models
-- Research local embedding models
-
----
-
-## Reporting Issues
-
-Found a bug or have a feature request?
-
-1. Search existing issues at [github.com/Ritiksuman07/Vajra/issues](https://github.com/Ritiksuman07/Vajra/issues)
-2. If no similar issue exists, open a new one with:
-   - Clear title
-   - Detailed description
-   - Steps to reproduce (for bugs)
-   - Expected vs actual behavior
-
-**Security vulnerabilities**: Please report privately via **security@vajra.ai**.
-
----
-
-## Development Setup
+Requires Go 1.24+ and, for real answers, [Ollama](https://ollama.com).
 
 ```bash
-# Clone
 git clone https://github.com/Ritiksuman07/Vajra.git
 cd Vajra
 
-# Install Python deps
-pip install -e ".[dev]"
-
-# Install Go modules
-cd service && go mod tidy && cd ../
-
-# (Optional) Install Ollama for local models
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Run tests
-bash scripts/run-tests.sh
+go mod download
+make build            # → dist/vajra
+make test             # go test ./... -race
+make vet              # go vet ./...
+make run              # build + launch the TUI
 ```
 
----
+Project layout (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)):
 
-## Submitting Changes
+```
+main.go                 CLI entrypoint
+internal/config         configuration
+internal/llm            backends + router
+internal/agent          roles + team runner
+internal/verify         verification pipeline
+internal/session        session storage
+internal/server         REST API + embedded web UI
+internal/tui            terminal UI
+```
 
-1. Fork the repository
-2. Create a branch: `git checkout -b feat/my-feature`
-3. Make changes
-4. Run tests: `bash scripts/run-tests.sh`
-5. Commit: `git commit -m "Add my feature"`
-6. Push: `git push origin feat/my-feature`
-7. Open a Pull Request
+## Submitting changes
 
-**PR Requirements**:
-- Tests pass (`make test`)
-- Code formatted (`ruff check agent/`, `gofmt service/`)
-- Changes documented (if user-facing)
+1. Fork and branch: `git checkout -b feat/my-feature`
+2. Keep commits focused and messages clear (`feat:`, `fix:`, `docs:`…)
+3. Run the checks:
+   ```bash
+   gofmt -s -l .        # must print nothing
+   go vet ./...
+   go test ./... -race
+   ```
+4. Add tests for behaviour changes.
+5. Open a PR and fill in the template.
 
----
+**Ground rules**
+- No telemetry, analytics or update pings.
+- No new always-on network calls; anything outbound must be opt-in.
+- Keep the binary self-contained (assets embedded, no CDN).
 
-## Code Style
+## Code style
 
-| Language | Linter/Formatter | Command |
-|----------|------------------|---------|
-| Python   | ruff + black     | `ruff check . && black .` |
-| Go       | gofmt            | `gofmt -w service/` |
-| Shell    | shellcheck       | `shellcheck scripts/*.sh` |
+| Area | Tool |
+|------|------|
+| Go | `gofmt -s`, `go vet`, [golangci-lint](.golangci.yml) |
+| Shell | `shellcheck` |
+| Docs | clear, concise, UK/US English consistent |
 
----
+Prefer small, well-named packages and functions; document exported symbols;
+return errors rather than panicking.
 
 ## Testing
 
 ```bash
-# Run all tests
-python -m pytest tests/ -v
-
-# Run specific test
-python tests/test_agent_pod.py
-
-# Verify installers
-bash scripts/verify-installers.sh
-
-# Run verification layer tests
-python tests/test_verification_pipeline.py
+go test ./... -race -count=1          # everything
+go test ./internal/verify/ -v         # one package
+go test ./internal/llm/ -run Ollama   # one group
 ```
 
----
+HTTP behaviour is tested with `httptest`, so tests never need a real Ollama.
 
-## Help Wanted
+## Good first issues
 
-Check our open issues with the `good first issue` or `help wanted` labels:
-👉 [github.com/Ritiksuman07/Vajra/issues?q=is:issue+is:open+label:"good first issue"](https://github.com/Ritiksuman07/Vajra/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-
-Current needs:
-- [ ] Add VS Code extension for agent management
-- [ ] Improve Windows installer error handling
-- [ ] Add TypeScript code execution sandbox
-- [ ] Write tutorial: "Building your first multi-agent workflow"
-
----
+Look for the [`good first issue`](https://github.com/Ritiksuman07/Vajra/labels/good%20first%20issue)
+and [`help wanted`](https://github.com/Ritiksuman07/Vajra/labels/help%20wanted)
+labels. The [roadmap](docs/TODO.md) lists what's planned.
 
 ## License
 
-By contributing to Vajra, you agree that your contributions will be licensed under the [MIT License](LICENSE).
-
----
-
-Thank you for helping make AI more accessible, private, and powerful! 🚀
+By contributing you agree your work is licensed under the [MIT License](LICENSE).

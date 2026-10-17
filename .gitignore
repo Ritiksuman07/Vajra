@@ -1,0 +1,37 @@
+# ── Build artifacts ─────────────────────────────────────
+/dist/
+/bin/
+*.exe
+*.exe~
+*.test
+*.out
+vajra
+!packaging/**
+
+# ── Go ──────────────────────────────────────────────────
+vendor/
+*.prof
+*.pprof
+
+# ── Editors / OS ────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Local state ─────────────────────────────────────────
+.vajra/
+*.log
+
+# ── Packaging scratch ───────────────────────────────────
+/build/
+/deb/
+/rpm/
+/AppDir/
+*.AppImage
+*.deb
+*.rpm
+*.dmg
+Output/

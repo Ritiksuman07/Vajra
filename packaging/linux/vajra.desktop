@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Vajra
+GenericName=AI Agent Workspace
+Comment=Local-first AI agent workspace with a TUI, web UI and REST API
+Exec=vajra
+Terminal=true
+Categories=Development;Utility;
+Keywords=ai;agent;llm;ollama;local;offline;chat;
+StartupNotify=false

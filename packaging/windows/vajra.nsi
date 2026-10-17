@@ -1,10 +1,18 @@
-; Vajra Windows Installer (NSIS) — Fallback
-; Requires: makensis (https://nsis.sourceforge.io/Download)
-; Usage: makensis packaging\windows\vajra.nsi
+; ─────────────────────────────────────────────────────────────
+;  Vajra — Windows installer (NSIS fallback)
+;  Requires makensis:  https://nsis.sourceforge.io/Download
+;  Build:  makensis packaging\windows\vajra.nsi
+; ─────────────────────────────────────────────────────────────
 
-Name "Vajra"
-OutFile "dist/vajra-1.0.0-windows-x64.exe"
-InstallDir "$LOCALAPPDATA\Vajra"
+!define APPNAME   "Vajra"
+!define VERSION   "1.1.0"
+!define PUBLISHER "Vajra Contributors"
+!define URL       "https://github.com/Ritiksuman07/Vajra"
+
+Name "${APPNAME}"
+OutFile "..\..\dist\releases\VajraSetup-${VERSION}-win-x64-nsis.exe"
+InstallDir "$LOCALAPPDATA\Programs\Vajra"
+RequestExecutionLevel user
 
 !include MUI2.nsh
 !insertmacro MUI_PAGE_WELCOME
@@ -15,34 +23,37 @@ InstallDir "$LOCALAPPDATA\Vajra"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
-Section "Main"
+Section "Vajra" SecMain
     SetOutPath "$INSTDIR"
-    File "..\dist\vajra-service.exe"
-    File "..\dist\vajra.exe"
-    CreateDirectory "$INSTDIR\config"
-    CreateDirectory "$INSTDIR\data"
-    CreateDirectory "$INSTDIR\logs"
-    File "..\config\default.yaml"
+    File "..\..\dist\vajra.exe"
+    File "..\..\README.md"
+    File "..\..\LICENSE"
+
     CreateDirectory "$SMPROGRAMS\Vajra"
-    CreateShortcut "$SMPROGRAMS\Vajra\Vajra.lnk" "$INSTDIR\vajra.exe"
+    CreateShortcut "$SMPROGRAMS\Vajra\Vajra (Terminal UI).lnk" "$INSTDIR\vajra.exe"
+    CreateShortcut "$SMPROGRAMS\Vajra\Vajra (Web UI).lnk" "$INSTDIR\vajra.exe" "web"
     CreateShortcut "$SMPROGRAMS\Vajra\Uninstall.lnk" "$INSTDIR\uninstall.exe"
+    CreateShortcut "$DESKTOP\Vajra.lnk" "$INSTDIR\vajra.exe"
+
     WriteUninstaller "$INSTDIR\uninstall.exe"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "DisplayName" "Vajra"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "UninstallString" '"$INSTDIR\uninstall.exe"'
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "DisplayVersion" "1.0.0"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "Publisher" "Vajra Contributors"
-    WriteRegStr HKCU "Environment" "VAJRA_DATA_DIR" "$INSTDIR\data"
+
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "DisplayName" "${APPNAME}"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "UninstallString" '"$INSTDIR\uninstall.exe"'
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "DisplayVersion" "${VERSION}"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "Publisher" "${PUBLISHER}"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra" "URLInfoAbout" "${URL}"
 SectionEnd
 
 Section "Uninstall"
-    Delete "$INSTDIR\vajra-service.exe"
     Delete "$INSTDIR\vajra.exe"
+    Delete "$INSTDIR\README.md"
+    Delete "$INSTDIR\LICENSE"
     Delete "$INSTDIR\uninstall.exe"
-    RMDir "$INSTDIR\config"
-    RMDir "$INSTDIR\data"
-    RMDir "$INSTDIR\logs"
-    RMDir "$INSTDIR"
+    Delete "$SMPROGRAMS\Vajra\Vajra (Terminal UI).lnk"
+    Delete "$SMPROGRAMS\Vajra\Vajra (Web UI).lnk"
+    Delete "$SMPROGRAMS\Vajra\Uninstall.lnk"
+    Delete "$DESKTOP\Vajra.lnk"
     RMDir "$SMPROGRAMS\Vajra"
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra"
-    DeleteRegValue HKCU "Environment" "VAJRA_DATA_DIR"
+    RMDir "$INSTDIR"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Vajra"
 SectionEnd

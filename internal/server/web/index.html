@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Vajra — Local-First AI Agents</title>
+<meta name="description" content="Vajra is a local-first, offline AI agent workspace with a TUI, web UI and multi-agent orchestration. Your prompts never leave your machine." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div id="app">
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo">🛡️</div>
+      <div>
+        <h1>Vajra</h1>
+        <small>local-first agents</small>
+      </div>
+    </div>
+
+    <div class="side-scroll">
+      <button class="btn primary block" id="newChat">＋ New chat</button>
+
+      <div class="section">
+        <div class="section-title">Agents</div>
+        <div class="list" id="agentList"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Sessions</div>
+        <div class="list" id="sessionList"></div>
+      </div>
+    </div>
+
+    <div class="side-foot">
+      <div class="field">
+        <label>Model</label>
+        <select id="modelSelect"></select>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn block" id="settingsBtn">⚙ Settings</button>
+        <button class="btn ghost" id="themeBtn" title="Toggle theme">🌓</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; padding-top:2px;">
+        <span class="pill"><span class="dot" id="statusDot"></span><span id="statusText">checking…</span></span>
+        <span class="spacer" style="flex:1"></span>
+        <span class="pill" id="versionPill">v—</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────── -->
+  <main class="main">
+    <header class="topbar">
+      <button class="btn ghost menu-btn" id="menuBtn">☰</button>
+      <div class="title" id="threadTitle">New chat</div>
+      <div class="spacer"></div>
+      <span class="pill" id="backendPill">ollama</span>
+      <button class="btn ghost" id="teamBtn2" title="Run a multi-agent team on your next message">👥 Team mode</button>
+    </header>
+
+    <div class="thread" id="thread">
+      <div class="thread-inner" id="threadInner">
+        <div class="welcome" id="welcome">
+          <div class="hero">🛡️</div>
+          <h2>Your machine. Your models. Your data.</h2>
+          <p>Vajra runs entirely on your computer through Ollama. Prompts never leave your device unless you add a cloud provider.</p>
+          <div class="suggestions">
+            <div class="suggestion" data-prompt="Explain how a transformer attention head works, with a small code example.">
+              <strong>Learn something</strong><span>Explain a concept with an example</span>
+            </div>
+            <div class="suggestion" data-prompt="Write a Python function that reads a CSV and returns the top 5 rows by a given column.">
+              <strong>Write code</strong><span>Generate a tested function</span>
+            </div>
+            <div class="suggestion" data-prompt="Plan a 3-step approach to add automated tests to a small Go project.">
+              <strong>Plan work</strong><span>Decompose a goal into steps</span>
+            </div>
+            <div class="suggestion" data-prompt="Summarise the trade-offs between SQLite and Postgres for a local desktop app.">
+              <strong>Compare options</strong><span>Get a balanced analysis</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <textarea id="input" rows="1" placeholder="Message Vajra…  (Enter to send · Shift+Enter for newline)"></textarea>
+        <div class="composer-row">
+          <span class="chip" id="verifyChip" title="Run the 4-layer verification pipeline">🛡️ Verify</span>
+          <span class="chip" id="teamChip" title="Delegate to the agent team">👥 Team</span>
+          <span class="spacer"></span>
+          <button class="btn primary" id="sendBtn">Send ↵</button>
+        </div>
+      </div>
+      <div class="hint">Vajra is local-first · nothing is sent anywhere unless you add a provider key</div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Settings modal ─────────────────────────────── -->
+<div class="modal-back" id="modalBack">
+  <div class="modal">
+    <h3>Settings</h3>
+    <div class="sub">Everything is stored locally in <code>~/.vajra/config.json</code>.</div>
+
+    <div class="field" style="margin-bottom:14px;">
+      <label>Default agent</label>
+      <select id="defAgent"></select>
+    </div>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Temperature · <span id="tempVal">0.7</span></label>
+      <input type="range" id="temp" min="0" max="1" step="0.05" value="0.7" style="width:100%" />
+    </div>
+    <label class="switch" style="margin-bottom:18px;">
+      <input type="checkbox" id="verifyDefault" /> Verify answers by default (4-layer pipeline)
+    </label>
+
+    <div class="section-title">Providers</div>
+    <div class="prov-list" id="provList"></div>
+
+    <div class="row">
+      <div class="field" style="flex:1;">
+        <label>Provider</label>
+        <select id="provKind">
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="groq">Groq</option>
+          <option value="together">Together</option>
+          <option value="lmstudio">LM Studio (local)</option>
+          <option value="custom">Custom (OpenAI-compatible)</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1.4;">
+        <label>API key</label>
+        <input type="password" id="provKey" placeholder="sk-…" />
+      </div>
+      <button class="btn" id="addProv">Add</button>
+    </div>
+    <div class="field" style="margin-bottom:8px;">
+      <label>Base URL (optional)</label>
+      <input type="text" id="provURL" placeholder="https://api.example.com/v1" />
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="closeModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>

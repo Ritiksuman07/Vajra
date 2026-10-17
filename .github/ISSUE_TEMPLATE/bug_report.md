@@ -1,42 +1,66 @@
 ---
-name: Bug Report
-description: Report unexpected behavior or errors
-title: '[bug]: '
-labels: bug
-projects: vajra
----
-
-## Describe the bug
-
-A clear and concise description of what the bug is.
-
-## To Reproduce
-
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Run 'vajra ...'
-3. See error
-
-## Expected behavior
-
-A clear and concise description of what you expected to happen.
-
-## Environment
-
-- **Vajra version**: [e.g., 1.0.0]
-- **OS**: [e.g., Windows 11, Ubuntu 22.04, macOS 13]
-- **Python**: [e.g., 3.11]
-- **Go**: [e.g., 1.22]
-- **Ollama version**: [if applicable]
-
-## Logs
-
-Please paste any relevant logs or screenshots.
-
-```bash
-# Run command
-vajra run "your task" 2>&1
-
-# Check logs
-cat ~/.local/share/vajra/logs/*.log
-```
+name: Bug report
+description: Something isn't working as expected
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Please run `vajra doctor` and paste its output —
+        it answers most questions up front.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. run `vajra ...`
+        2. ...
+        3. see error
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Vajra version
+      description: Output of `vajra version`
+      placeholder: "vajra 1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      placeholder: "llama3.1:8b"
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`vajra doctor` output"
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      render: shell
+    validations:
+      required: false

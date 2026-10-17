@@ -1,33 +1,53 @@
 ---
-name: Feature Request
-description: Suggest a new feature or improvement
-title: '[feature]: '
-labels: enhancement
-projects: vajra
----
-
-## Is your feature request related to a problem?
-
-A clear and concise description of what the problem is. (Ex. I'm always frustrated when [...])
-
-## Proposed solution
-
-Describe the solution you'd like. (Ex. A clear and concise description of what you want to happen.)
-
-## Alternatives considered
-
-A clear and concise description of any alternative solutions or features you've considered.
-
-## Additional context
-
-Add any other context or screenshots about the feature request here.
-
-### Example Use Cases
-- [ ] Integration with tool X
-- [ ] Workflow automation for Y
-- [ ] New agent role: _______________
-
-### Priority
-- [ ] Must-have (blocker for my use case)
-- [ ] Important (would significantly improve UX)
-- [ ] Nice-to-have (polish item)
+name: Feature request
+description: Suggest an idea or improvement
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the [roadmap](../blob/main/docs/TODO.md) —
+        it may already be planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the need, not just the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Terminal UI (TUI)
+        - Web GUI
+        - REST API
+        - Agents / team mode
+        - Verification
+        - Models / providers
+        - Packaging / install
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This keeps Vajra fully functional offline
+        - label: This does not add telemetry

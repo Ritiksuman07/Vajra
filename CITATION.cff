@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use Vajra in your work, please cite it as below."
+title: "Vajra — Local-First AI Agent Workspace"
+abstract: >-
+  Vajra is an offline-first AI agent workspace written in Go. It provides a
+  terminal UI, a web GUI and a REST API on top of local model servers such as
+  Ollama, with multi-agent orchestration and a four-layer verification
+  pipeline. No telemetry, no cloud dependency.
+type: software
+license: MIT
+authors:
+  - family-names: Suman
+    given-names: Ritik
+    alias: Ritiksuman07
+repository-code: "https://github.com/Ritiksuman07/Vajra"
+url: "https://github.com/Ritiksuman07/Vajra"
+keywords:
+  - ai agents
+  - local-first
+  - offline ai
+  - ollama
+  - multi-agent
+  - anti-hallucination
+  - privacy
+  - go
+version: 1.1.0
+date-released: "2026-10-17"

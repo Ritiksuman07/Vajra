@@ -1,0 +1,57 @@
+name: Manage issues
+
+on:
+  issues:
+    types: [opened]
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            👋 Thanks for opening your first issue in **Vajra**!
+
+            A couple of things that help us help you fast:
+            - Paste the output of `vajra doctor`
+            - Include your OS, Go version and model name
+            - Add the exact command you ran
+
+            We usually reply within a few days. Thanks for being here!
+          pr-message: |
+            🎉 Thanks for your first pull request to **Vajra**!
+
+            Please make sure `gofmt -s -l .`, `go vet ./...` and
+            `go test ./... -race` all pass. A maintainer will review soon.
+
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-issue-stale: 45
+          days-before-issue-close: 15
+          days-before-pr-stale: 60
+          days-before-pr-close: 20
+          stale-issue-message: >
+            This issue has been quiet for a while. It will close in 15 days
+            unless there's more activity — comment if it's still relevant.
+          stale-pr-message: >
+            This pull request has been quiet for a while. It will close in 20
+            days unless there's more activity.
+          close-issue-message: "Closing due to inactivity. Reopen any time with new details."
+          close-pr-message: "Closing due to inactivity. Reopen when you'd like to continue."
+          exempt-issue-labels: "pinned,security,good first issue,help wanted"
+          exempt-pr-labels: "pinned,security"
+          stale-issue-label: "stale"
+          stale-pr-label: "stale"

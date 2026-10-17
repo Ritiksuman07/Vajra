@@ -1,0 +1,20 @@
+{
+  "model": "llama3.1:8b",
+  "agent": "assistant",
+  "theme": "dark",
+  "verify": false,
+  "stream": true,
+  "temperature": 0.7,
+  "ollama_host": "http://localhost:11434",
+  "embed_model": "nomic-embed-text",
+  "judge_model": "",
+  "port": 4096,
+  "providers": [
+    {
+      "name": "ollama",
+      "kind": "ollama",
+      "base_url": "http://localhost:11434",
+      "enabled": true
+    }
+  ]
+}

@@ -1,57 +1,74 @@
-# Vajra v1.0.0 — Local-First AI Agent Team
+# Vajra v1.1.0 — Your machine. Your models. Your data. 🛡️
 
-## Highlights
+Vajra is a **local-first AI agent workspace** in a single Go binary. It runs
+entirely on your computer through [Ollama](https://ollama.com): a terminal UI,
+a web GUI and a REST API, with multi-agent orchestration and a four-layer
+verification pipeline. **No telemetry. No account. No cloud.**
 
-- ✅ **Local First**: Ollama, LM Studio, and llama.cpp integration — zero data leaves your machine
-- ✅ **Multi-Agent**: Chief of Staff + Coder + Researcher + Executor + Reviewer working in parallel
-- ✅ **Anti-Hallucination**: 4-layer verification pipeline (fast checks → semantic similarity → LLM judge → human escalation)
-- ✅ **MCP Native**: Full Model Context Protocol support with file-system, shell, git, and code-exec servers
-- ✅ **Single-Click Installers**:
-  - Windows: Inno Setup `.exe`
-  - Linux: AppImage + DEB + RPM
-- ✅ **Offline Mode Fully Supported**: No internet required after model download
-- ✅ **Privacy By Default**: Zero telemetry. Zero phone-home. Zero cloud dependencies unless opted-in.
+## ✨ Highlights
 
-## Breaking Changes
+- **One binary, zero runtime.** No Python, no Node, no Docker required.
+- **Terminal UI** with token streaming, session history, model/agent pickers.
+- **Web GUI** (`vajra web`) — self-contained, offline, dark & light themes.
+- **Multi-agent team mode** — a Chief plans, specialists execute, the Chief synthesises.
+- **4-layer verification** — fast checks, semantic similarity, LLM-as-a-judge, human escalation.
+- **Optional cloud** — `vajra connect openai` (or Anthropic, OpenRouter, Groq, Together) if *you* choose.
 
-None in this initial release.
+## 📦 Install
 
-## Migration Notes
+**Windows** — download `VajraSetup-1.1.0-win-x64.exe` and run it.
 
-N/A — this is the first public release.
-
-## Full Changelog
-See [CHANGELOG.md](CHANGELOG.md) or visit the [GitHub release page](https://github.com/Ritiksuman07/Vajra/releases).
-
-## How to Upgrade
-
-If you’re already using Vajra:
+**Linux / macOS**
 
 ```bash
-# Download the latest release
-# https://github.com/Ritiksuman07/Vajra/releases/latest
-
-# Or, if installed from source:
-cd vajra
-git pull origin main
-pip install -e ".[dev]" 
-go build ./service/cmd/vajra/
+curl -fsSL https://raw.githubusercontent.com/Ritiksuman07/Vajra/main/scripts/install.sh | bash
 ```
 
-## Verified Environments
+**From source**
 
-| OS          | Arch    | Notes                         |
-|-------------|---------|-------------------------------|
-| Windows 10/11 | x64    | Installer tested              |
-| Ubuntu 22.04+ | x64    | AppImage + DEB tested         |
-| Ubuntu 22.04+ | ARM64  | AppImage tested               |
-| macOS 13+     | ARM64  | Runs via Rosetta              |
+```bash
+git clone https://github.com/Ritiksuman07/Vajra
+cd Vajra
+make build
+```
 
-## Download Links
+## 🚀 Quick start
 
-- **Windows**: [VajraSetup-1.0.0-win-x64.exe](https://github.com/Ritiksuman07/Vajra/releases/download/v1.0.0/VajraSetup-1.0.0-win-x64.exe)
-- **Linux AppImage**: [vajra-1.0.0-x86_64.AppImage](https://github.com/Ritiksuman07/Vajra/releases/download/v1.0.0/vajra-1.0.0-x86_64.AppImage)
-- **Linux DEB**: [vajra-1.0.0_amd64.deb](https://github.com/Ritiksuman07/Vajra/releases/download/v1.0.0/vajra-1.0.0_amd64.deb)
-- **Linux RPM**: [vajra-1.0.0-1.x86_64.rpm](https://github.com/Ritiksuman07/Vajra/releases/download/v1.0.0/vajra-1.0.0-1.x86_64.rpm)
+```bash
+ollama pull llama3.1:8b     # one-time model download
+vajra                       # terminal UI
+vajra web                   # web GUI in your browser
+vajra run "explain goroutines"   # one-shot, streams to stdout
+vajra doctor                # check your setup
+```
 
-Checksums are available in `checksums.sha256` on the same releases page.
+## 🧠 The agent team
+
+| Agent | Role |
+|-------|------|
+| 🧭 **Chief of Staff** | Plans, decomposes and delegates |
+| 💻 **Coder** | Writes and explains code |
+| 🔬 **Researcher** | Analyses and summarises |
+| ⚙️ **Executor** | Produces exact commands and file contents |
+| 🔍 **Reviewer** | Reviews for correctness and security |
+
+## ✅ Verification pipeline
+
+Every answer can be checked locally before you trust it:
+
+1. **Fast checks** — structure, PII, citation presence (~µs)
+2. **Semantic similarity** — local embeddings vs. your sources (~50 ms)
+3. **LLM-as-a-judge** — a rubric across correctness, completeness, faithfulness, coherence
+4. **Human escalation** — low-confidence answers are flagged, not hidden
+
+## 🔐 Privacy
+
+Vajra sends **nothing** anywhere by default. Prompts go to `localhost:11434`.
+The only outbound requests are ones you explicitly configure with
+`vajra connect`.
+
+## 📄 License
+
+MIT © Ritik Suman and contributors.
+
+**Full release notes:** see [CHANGELOG.md](CHANGELOG.md)
