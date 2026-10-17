@@ -117,6 +117,18 @@ kept so contributors can see the direction of travel.
 - [ ] Benchmark suite comparing verification modes
 - [ ] Incremental re-indexing (only changed files) for large folders
 
+## 🧰 Maintenance
+
+- [ ] Attach the missing `VajraSetup-1.2.0-win-x64.exe.sha256` to the published
+      v1.2.0 release: **Actions → Release → Run workflow → `version: v1.2.0`**.
+      The workflow now resolves and validates that input (it used to ignore it
+      and would have built `…-main-…`), and sets `tag_name`, so this targets the
+      tag rather than the branch. Every release from v1.3.0 on gets the installer
+      checksum automatically.
+- [ ] Lint the workflows in CI with `actionlint`. `release.yml` is never
+      exercised by a pull request, so a broken release workflow is only found on
+      release day — which is how the two bugs above survived.
+
 ## 💡 Ideas (not committed)
 
 - Local knowledge graph for long-term memory
