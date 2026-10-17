@@ -3,6 +3,24 @@
 This file tracks what has shipped and what is planned. Completed items are
 kept so contributors can see the direction of travel.
 
+## ✅ Shipped — v1.2.0 (swarm)
+
+- [x] Swarm orchestrator: plan → **parallel** work round → peer review →
+      agent-to-agent handoffs → synthesis
+- [x] Guaranteed roster of 3–4 distinct agents (never a lone agent)
+- [x] Shared agent message bus with typed events (`plan` `task` `reply`
+      `critique` `handoff` `synthesis`)
+- [x] Agents can address each other with `@role: request`; handoffs are
+      parsed, dispatched and answered (bounded to 1 round / 3 requests)
+- [x] TUI: live per-agent transcript with `from → to` labels, `✉` handoff
+      lines and a scrollable agent-bus screen (`Ctrl+B`, `/bus`)
+- [x] Web UI: plan card, per-agent streaming bubbles, handoff notes,
+      highlighted final synthesis
+- [x] `POST /api/swarm` (SSE) with typed events; `/api/team` kept as an alias
+- [x] CLI `--swarm` with clean buffered blocks per agent + live synthesis
+- [x] Tests: task parsing, diversity guarantee, handoff parsing, full swarm
+      run, SSE endpoint
+
 ## ✅ Shipped — v1.1.0 rewrite
 
 **Core**
@@ -18,14 +36,14 @@ kept so contributors can see the direction of travel.
 
 - [x] Terminal UI: streaming, viewport, spinner, pickers, themes, help
 - [x] Web GUI: offline, streaming, sessions, provider manager, dark/light
-- [x] REST API with SSE (`/api/chat/stream`, `/api/team`)
+- [x] REST API with SSE (`/api/chat/stream`, `/api/swarm`)
 - [x] CLI: `run` `serve` `web` `models` `pull` `agents` `verify` `connect`
       `providers` `config` `doctor`
 
 **Agents & trust**
 
 - [x] Six agent roles with tuned prompts
-- [x] Multi-agent team mode (plan → delegate → synthesise)
+- [x] Multi-agent swarm mode (plan → parallel work → review → synthesis)
 - [x] Four-layer verification pipeline (fast, semantic, judge, escalate)
 - [x] Session persistence as readable JSON
 

@@ -30,6 +30,7 @@ const (
 	scrModels
 	scrAgents
 	scrSessions
+	scrSwarm
 )
 
 // ---------------------------------------------------------------------------
@@ -37,10 +38,18 @@ const (
 // ---------------------------------------------------------------------------
 
 type tokenMsg struct{ text string }
+
+// swarmMsg carries one event from the swarm engine to the UI.
+type swarmMsg struct{ ev agent.SwarmEvent }
+
 type genDoneMsg struct {
 	err    error
 	tokens int
 	report *verify.Report
+	// swarm runs finish with a synthesised final answer and no single
+	// streamed message, so the UI needs to know which kind of run ended.
+	swarm bool
+	final string
 }
 type modelsMsg struct {
 	models []llm.Model
@@ -84,10 +93,18 @@ type Model struct {
 	sessions []session.Meta
 
 	verifyOn bool
-	teamOn   bool
+	swarmOn  bool
 	health   bool
 	err      error
 	notice   string
+
+	// Swarm display state.
+	swarmFeed    []*swarmItem
+	swarmBus     []agent.BusMessage
+	swarmOpen    map[string]int
+	swarmAgents  []string
+	swarmAfter   int
+	swarmRunning bool
 }
 
 // Run starts the TUI and blocks until the user quits.
@@ -113,18 +130,20 @@ func newModel(cfg *config.Config, router *llm.Router, version string) *Model {
 	sess := session.New(cfg.Model, cfg.Agent)
 
 	return &Model{
-		cfg:      cfg,
-		router:   router,
-		runner:   agent.NewRunner(router),
-		store:    session.NewStore(config.SessionsDir()),
-		version:  version,
-		input:    in,
-		spinner:  sp,
-		sess:     sess,
-		agents:   agent.All(),
-		curAgent: cfg.Agent,
-		curModel: cfg.Model,
-		verifyOn: cfg.Verify,
+		cfg:        cfg,
+		router:     router,
+		runner:     agent.NewRunner(router),
+		store:      session.NewStore(config.SessionsDir()),
+		version:    version,
+		input:      in,
+		spinner:    sp,
+		sess:       sess,
+		agents:     agent.All(),
+		curAgent:   cfg.Agent,
+		curModel:   cfg.Model,
+		verifyOn:   cfg.Verify,
+		swarmOpen:  map[string]int{},
+		swarmAfter: -1,
 	}
 }
 
@@ -189,6 +208,14 @@ func (m *Model) generate(prompt string) tea.Cmd {
 	m.acc.Reset()
 	m.streaming = true
 	m.err = nil
+
+	// Swarm mode renders its own transcript between the prompt and the answer.
+	m.swarmAfter = len(m.messages) - 2
+	m.swarmFeed = nil
+	m.swarmBus = nil
+	m.swarmAgents = nil
+	m.swarmOpen = map[string]int{}
+	m.swarmRunning = m.swarmOn
 	m.refresh()
 
 	ch := make(chan tea.Msg, 128)
@@ -196,7 +223,7 @@ func (m *Model) generate(prompt string) tea.Cmd {
 
 	role := m.curAgent
 	model := m.curModel
-	team := m.teamOn
+	swarm := m.swarmOn
 	runner := m.runner
 	router := m.router
 	cfg := m.cfg
@@ -205,18 +232,14 @@ func (m *Model) generate(prompt string) tea.Cmd {
 		defer cancel()
 		defer close(ch)
 
-		if team {
-			_, err := runner.RunTeam(ctx, prompt, func(e agent.Event) {
-				switch e.Kind {
-				case "plan":
-					ch <- tokenMsg{"\n**Plan**\n" + e.Text + "\n\n"}
-				case "step_start":
-					ch <- tokenMsg{fmt.Sprintf("\n**▶ %s** — %s\n\n", e.Role, e.Text)}
-				case "token", "final":
-					ch <- tokenMsg{e.Text}
-				}
-			})
-			ch <- genDoneMsg{err: err}
+		if swarm {
+			res, err := runner.RunSwarm(ctx, prompt, agent.SwarmOptions{Handoffs: 1, Concurrent: 3},
+				func(ev agent.SwarmEvent) { ch <- swarmMsg{ev} })
+			done := genDoneMsg{err: err, swarm: true}
+			if res != nil {
+				done.final = res.Final
+			}
+			ch <- done
 			return
 		}
 
@@ -276,19 +299,31 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refresh()
 		return m, waitFor(m.ch)
 
+	case swarmMsg:
+		m.applySwarm(msg.ev)
+		m.refresh()
+		return m, waitFor(m.ch)
+
 	case genDoneMsg:
 		if m.ch == nil {
 			return m, nil // already finished
 		}
 		m.ch = nil
 		m.streaming = false
+		m.swarmRunning = false
 		if msg.err != nil {
 			m.err = msg.err
 		}
 		// Finalise the assistant message.
 		if n := len(m.messages); n > 0 {
-			m.messages[n-1].Content = m.acc.String()
-			m.messages[n-1].Tokens = msg.tokens
+			if msg.swarm {
+				m.messages[n-1].Content = msg.final
+				m.messages[n-1].Agent = "swarm"
+				m.messages[n-1].Tokens = msg.tokens
+			} else {
+				m.messages[n-1].Content = m.acc.String()
+				m.messages[n-1].Tokens = msg.tokens
+			}
 			if msg.report != nil {
 				m.messages[n-1].Verification = &session.Verification{
 					Score:       msg.report.Score,
@@ -298,6 +333,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+		m.swarmOpen = map[string]int{}
 		// Persist.
 		m.sess.Add(session.Message{Role: "user", Content: lastUser(m.messages)})
 		m.sess.Add(m.messages[len(m.messages)-1])
@@ -358,6 +394,16 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if m.screen == scrSwarm {
+		if k.String() == "ctrl+b" || k.String() == "q" || k.String() == "enter" {
+			m.screen = scrChat
+			m.refresh()
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.vp, cmd = m.vp.Update(k)
+		return m, cmd
+	}
 
 	// Chat screen shortcuts.
 	switch k.String() {
@@ -388,8 +434,12 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.notice = fmt.Sprintf("verify %s", onOff(m.verifyOn))
 		return m, nil
 	case "ctrl+t":
-		m.teamOn = !m.teamOn
-		m.notice = fmt.Sprintf("team mode %s", onOff(m.teamOn))
+		m.swarmOn = !m.swarmOn
+		m.notice = fmt.Sprintf("swarm mode %s", onOff(m.swarmOn))
+		return m, nil
+	case "ctrl+b":
+		m.screen = scrSwarm
+		m.refresh()
 		return m, nil
 	case "ctrl+u":
 		m.messages = nil
@@ -506,13 +556,18 @@ func (m *Model) runSlash(text string) tea.Cmd {
 		m.cfg.Verify = m.verifyOn
 		_ = m.cfg.Save()
 		m.notice = "verify " + onOff(m.verifyOn)
-	case "/team":
-		m.teamOn = !m.teamOn
-		m.notice = "team mode " + onOff(m.teamOn)
+	case "/team", "/swarm":
+		m.swarmOn = !m.swarmOn
+		m.notice = "swarm mode " + onOff(m.swarmOn)
+	case "/bus":
+		m.screen = scrSwarm
+		m.refresh()
 	case "/new":
 		m.newSession()
 	case "/clear":
 		m.messages = nil
+		m.swarmFeed = nil
+		m.swarmBus = nil
 		m.refresh()
 	case "/pull":
 		if arg == "" {
@@ -534,6 +589,10 @@ func (m *Model) runSlash(text string) tea.Cmd {
 func (m *Model) newSession() {
 	m.sess = session.New(m.curModel, m.curAgent)
 	m.messages = nil
+	m.swarmFeed = nil
+	m.swarmBus = nil
+	m.swarmAgents = nil
+	m.swarmOpen = map[string]int{}
 	m.acc.Reset()
 	m.err = nil
 	m.notice = "new session"
@@ -566,7 +625,11 @@ func (m *Model) layout() {
 }
 
 func (m *Model) refresh() {
-	m.vp.SetContent(m.renderMessages())
+	if m.screen == scrSwarm {
+		m.vp.SetContent(m.renderBusBody())
+	} else {
+		m.vp.SetContent(m.renderMessages())
+	}
 	m.vp.GotoBottom()
 }
 

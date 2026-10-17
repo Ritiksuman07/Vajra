@@ -10,7 +10,7 @@
 ; ─────────────────────────────────────────────────────────────
 
 #ifndef Version
-  #define Version "1.1.0"
+  #define Version "1.2.0"
 #endif
 
 #define AppName "Vajra"

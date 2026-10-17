@@ -11,7 +11,7 @@ Vajra is a single Go program, layered so each package has one job.
              ▼                           ▼                           ▼
      ┌───────────────┐          ┌────────────────┐          ┌────────────────┐
      │ internal/tui  │          │ internal/server│          │  internal/agent│
-     │  Bubble Tea   │          │  REST + SSE    │          │ roles + team   │
+     │  Bubble Tea   │          │  REST + SSE    │          │ roles + swarm   │
      └───────┬───────┘          │  + embedded UI │          └───────┬────────┘
              │                  └───────┬────────┘                  │
              └──────────────┬───────────┴───────────────┬──────────┘
@@ -38,7 +38,7 @@ Vajra is a single Go program, layered so each package has one job.
 |---------|----------------|
 | `internal/config` | Load/save `~/.vajra/config.json`, env overrides |
 | `internal/llm` | `Backend` interface; Ollama client (streaming, embed, pull) and cloud providers; `Router` model resolution |
-| `internal/agent` | Agent roles and the multi-agent team runner |
+| `internal/agent` | Agent roles and the swarm orchestrator (plan → parallel work → review → handoffs → synthesis) |
 | `internal/verify` | The four-layer verification pipeline |
 | `internal/session` | JSON session persistence |
 | `internal/server` | REST API, SSE streaming, embedded web UI |
@@ -59,7 +59,8 @@ Vajra is a single Go program, layered so each package has one job.
 The browser talks to the same server that the TUI logic is built on:
 
 - `POST /api/chat/stream` → Server-Sent Events with `token`, `verification`, `done`
-- `POST /api/team` → SSE with `plan`, `step_start`, `token`, `final`
+- `POST /api/swarm` → SSE with `plan`, `round`, `agent_start`, `token`, `agent_done`, `bus`, `done`
+  (`POST /api/team` is an alias)
 
 ## Why one binary
 
@@ -72,5 +73,9 @@ audit, ship and test — so Vajra does that instead, and is honest about it.
 
 - One generation at a time per TUI session; the goroutine reports through a
   buffered channel consumed by the Bubble Tea loop.
+- Swarm mode runs its specialists through a bounded worker pool (default 3 at
+  once) against one shared, mutex-guarded message bus. Event emission is
+  serialised, and every streamed token carries the role it belongs to, so the
+  TUI and the web UI can route it back to the right agent's bubble.
 - The HTTP server has per-request context timeouts and graceful shutdown.
 - Verification runs after the answer, so it never blocks first-token latency.

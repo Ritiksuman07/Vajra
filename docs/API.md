@@ -10,7 +10,7 @@ local tooling.
 GET /api/health
 ```
 ```json
-{ "name": "vajra", "status": "ok", "version": "1.1.0" }
+{ "name": "vajra", "status": "ok", "version": "1.2.0" }
 ```
 
 ## Status
@@ -20,7 +20,7 @@ GET /api/status
 ```
 Returns the active config plus backend reachability.
 ```json
-{ "config": { … }, "health": { "ollama": true }, "version": "1.1.0" }
+{ "config": { … }, "health": { "ollama": true }, "version": "1.2.0" }
 ```
 
 ## Models
@@ -86,15 +86,47 @@ const res = await fetch('/api/chat/stream', {
 const reader = res.body.getReader();
 ```
 
-## Team (streaming, SSE)
+## Swarm (streaming, SSE)
 
 ```
-POST /api/team
+POST /api/swarm
 ```
 ```json
-{ "message": "build a small app and review it" }
+{
+  "message": "build a small app and review it",
+  "min_agents": 3,
+  "max_agents": 4,
+  "handoffs": 1,
+  "concurrent": 3,
+  "review": true
+}
 ```
-Events: `plan`, `step_start`, `token`, `final`, `done`, `error`.
+All tuning fields are optional. `POST /api/team` is kept as an alias.
+
+Each event is a serialised `agent.SwarmEvent`:
+
+| `type` | Meaning | Key fields |
+|--------|---------|-----------|
+| `plan` | The Chief decomposed the goal | `plan[]`, `agents[]`, `text` |
+| `round` | Round banner | `round`, `text` |
+| `agent_start` | An agent began work | `role`, `to`, `kind`, `text` (the brief) |
+| `token` | A streamed fragment | `role`, `text` |
+| `agent_done` | An agent finished | `role`, `text` (full output) |
+| `bus` | A message between agents | `from`, `to`, `kind`, `msg`, `text` |
+| `done` | Final synthesis complete | `text` |
+| `error` | Something failed | `error` |
+
+`kind` on a `bus`/`agent_*` event is one of `plan`, `task`, `reply`,
+`critique`, `handoff` or `synthesis` — that is how a client distinguishes an
+agent answering the team from one asking a teammate for help.
+
+```js
+await streamSSE('/api/swarm', { message: 'plan a 3-step migration' }, (ev) => {
+  if (ev.type === 'agent_start') openBubble(ev.role, ev.to, ev.kind);
+  if (ev.type === 'token') appendToken(ev.role, ev.text);
+  if (ev.type === 'bus' && ev.kind === 'handoff') showNote(ev.from, ev.to, ev.text);
+});
+```
 
 ## Sessions
 

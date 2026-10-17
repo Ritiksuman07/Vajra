@@ -34,8 +34,8 @@ bash scripts/build.sh          # linux/macOS tarballs (+ AppImage)
 ## 4. Publish
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 - [ ] The `Release` workflow turns green

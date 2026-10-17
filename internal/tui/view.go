@@ -53,6 +53,8 @@ func (m *Model) View() string {
 		return m.viewAgents()
 	case scrSessions:
 		return m.viewSessions()
+	case scrSwarm:
+		return m.viewSwarmBus()
 	}
 	return m.viewChat()
 }
@@ -67,8 +69,8 @@ func (m *Model) viewChat() string {
 	if m.health {
 		status = "● ready"
 	}
-	head := fmt.Sprintf(" 🛡️  vajra %s   %s   %s %s   verify:%s team:%s ",
-		m.version, m.curModel, status, "", onOff(m.verifyOn), onOff(m.teamOn))
+	head := fmt.Sprintf(" 🛡️  vajra %s   %s   %s %s   verify:%s swarm:%s ",
+		m.version, m.curModel, status, "", onOff(m.verifyOn), onOff(m.swarmOn))
 	b.WriteString(stHeader.Width(m.width).Render(head))
 	b.WriteString("\n")
 
@@ -83,13 +85,17 @@ func (m *Model) viewChat() string {
 
 	bar := ""
 	if m.streaming {
-		bar = " " + m.spinner.View() + " generating…"
+		if m.swarmRunning {
+			bar = " " + m.spinner.View() + " " + m.swarmStatus()
+		} else {
+			bar = " " + m.spinner.View() + " generating…"
+		}
 	} else if m.err != nil {
 		bar = " ⚠ " + m.err.Error()
 	} else if m.notice != "" {
 		bar = " " + m.notice
 	} else {
-		bar = " Ctrl+H help · Ctrl+M models · Ctrl+A agents · Ctrl+L sessions · Ctrl+V verify · Ctrl+T team · Ctrl+Q quit"
+		bar = " Ctrl+H help · Ctrl+M models · Ctrl+A agents · Ctrl+B bus · Ctrl+L sessions · Ctrl+V verify · Ctrl+T swarm · Ctrl+Q quit"
 	}
 	style := stFaint
 	if m.err != nil {
@@ -121,6 +127,11 @@ func (m *Model) renderMessages() string {
 	var b strings.Builder
 	for i, msg := range m.messages {
 		last := i == len(m.messages)-1
+		// While a swarm runs, the transcript below replaces the empty
+		// assistant placeholder.
+		if last && m.swarmRunning && msg.Role == "assistant" && strings.TrimSpace(msg.Content) == "" {
+			continue
+		}
 		switch msg.Role {
 		case "user":
 			b.WriteString(stUser.Render("  You "))
@@ -161,8 +172,39 @@ func (m *Model) renderMessages() string {
 			}
 			b.WriteString("\n")
 		}
+
+		// Weave the swarm transcript in right after the prompt that
+		// triggered it.
+		if i == m.swarmAfter && len(m.swarmFeed) > 0 {
+			b.WriteString(m.renderSwarm(contentW))
+			b.WriteString("\n")
+		}
 	}
 	return b.String()
+}
+
+// swarmStatus summarises which agents are currently working, for the
+// status bar.
+func (m *Model) swarmStatus() string {
+	if len(m.swarmOpen) == 0 {
+		return "swarm working…"
+	}
+	names := make([]string, 0, len(m.swarmOpen))
+	for i := range m.swarmFeed {
+		it := m.swarmFeed[i]
+		if it.Kind != "agent" {
+			continue
+		}
+		if _, open := m.swarmOpen[it.Role]; !open {
+			continue
+		}
+		_, name := roleParts(it.Role)
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return "swarm working…"
+	}
+	return "swarm · " + strings.Join(names, " + ") + " working…"
 }
 
 // renderMarkdownish renders a small subset of Markdown: code fences,
@@ -311,11 +353,22 @@ func (m *Model) viewHelp() string {
 		{"/agent [id]", "switch agent persona"},
 		{"/models /agents /sessions", "open the corresponding browser"},
 		{"/verify", "toggle the verification pipeline"},
-		{"/team", "toggle multi-agent team mode"},
+		{"/swarm (or /team)", "toggle the multi-agent swarm"},
+		{"/bus", "read the agent-to-agent message bus"},
 		{"/pull <model>", "download a model from Ollama"},
 		{"/new", "start a fresh session"},
 		{"/clear", "clear the current view"},
 		{"/exit", "quit Vajra"},
+	} {
+		b.WriteString(fmt.Sprintf("  %-24s %s\n", stKey.Render(c[0]), stMuted.Render(c[1])))
+	}
+	b.WriteString("\n")
+	b.WriteString(stTitle.Render("  Swarm mode") + "\n")
+	for _, c := range [][2]string{
+		{"Ctrl+T, then ask", "chief plans, specialists work in parallel"},
+		{"🔬 💻 ⚙️ 🔍 blocks", "each agent streams its own answer"},
+		{"✉ handoffs", "agents ask each other for follow-ups"},
+		{"Ctrl+B", "read every message they exchanged"},
 	} {
 		b.WriteString(fmt.Sprintf("  %-24s %s\n", stKey.Render(c[0]), stMuted.Render(c[1])))
 	}
@@ -326,8 +379,9 @@ func (m *Model) viewHelp() string {
 		{"Ctrl+M", "models"},
 		{"Ctrl+A", "agents"},
 		{"Ctrl+L", "sessions"},
+		{"Ctrl+B", "agent bus"},
 		{"Ctrl+V", "toggle verify"},
-		{"Ctrl+T", "toggle team mode"},
+		{"Ctrl+T", "toggle swarm mode"},
 		{"Ctrl+N", "new session"},
 		{"Ctrl+U", "clear view"},
 		{"↑/↓ PgUp/PgDn", "scroll"},

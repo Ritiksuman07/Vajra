@@ -36,7 +36,7 @@ body:
         - Terminal UI (TUI)
         - Web GUI
         - REST API
-        - Agents / team mode
+        - Agents / swarm mode
         - Verification
         - Models / providers
         - Packaging / install

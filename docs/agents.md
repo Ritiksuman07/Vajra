@@ -27,36 +27,65 @@ vajra run --agent coder "write a Go function that reverses a linked list"
 
 In the TUI: `Ctrl+A` to pick an agent, or `/agent coder`.
 
-## Team mode
+## Swarm mode
 
-Team mode chains several roles for tasks that benefit from planning and
-review. Flow:
+Swarm mode runs a small team of specialists on one goal, **in parallel**, with
+a shared message bus so they can talk to each other. Flow:
 
 ```
-        ┌──────────────┐
-goal ──▶│ Chief plans  │──▶ [step 1] [step 2] [step 3]
-        └──────────────┘
-                 │
-        ┌────────▼─────────┐
-        │ each step routed │  coder / researcher / executor / reviewer
-        │ to its role      │  (each sees the work so far)
-        └────────┬─────────┘
-                 │
-        ┌────────▼─────────┐
-        │ Chief synthesises│──▶ final answer
-        └──────────────────┘
+                    ┌────────────────┐
+goal ──────────────▶│  Chief plans   │──▶ researcher ┐
+                    └────────────────┘    coder      ├─ work in parallel
+                                          executor   ┘  (each sees the bus)
+                                                 │
+                                        ┌────────▼────────┐
+                                        │ Reviewer        │  posts a critique
+                                        └────────┬────────┘
+                                                 │
+                                @role: requests ─┤  agents ask each other
+                                (handoffs)       │  for follow-up work
+                                                 │
+                                        ┌────────▼────────┐
+                                        │ Chief synthesis │──▶ final answer
+                                        └─────────────────┘
 ```
 
 Enable it:
 
 ```bash
-vajra run --team "add tests to a small Go project and review them"
+vajra run --swarm "add tests to a small Go project and review them"
 ```
 
-In the TUI: `Ctrl+T`, or `/team`.
+In the TUI: `Ctrl+T` toggles it, `Ctrl+B` (or `/bus`) opens the agent bus so
+you can read every message the agents exchanged. In the web UI: the 🐝 toggle
+next to the composer.
 
-The planner is asked for strict JSON and falls back to a single step if the
-model does not cooperate, so team mode never hard-fails on a small model.
+### Who talks to whom
+
+Every message on the bus is shown with its sender and recipient:
+
+```
+🔬 Researcher → 👥 everyone · reply
+⚙️ Executor → 👥 everyone · reply
+✉ 🔍 Reviewer → 🔬 Researcher   asked for help: check the 5-7-5 syllables
+🔬 Researcher → 🔍 Reviewer · reply
+🧭 Chief of Staff → 👤 you · synthesis
+```
+
+Agents hand work to each other by writing `@role: request` on its own line.
+The orchestrator parses that, posts it to the bus, and runs the follow-up —
+bounded to one round and three requests so a chatty model cannot spiral.
+
+### Guardrails
+
+- **Never a lone agent.** The planner is asked for 3–4 specialists; if a small
+  model returns one task, Vajra tops the roster up from a default rotation
+  (`researcher`, `coder`, `executor`, `reviewer`). Swarm mode always runs at
+  least three distinct agents.
+- **Bounded cost.** One parallel work round, one critique round, at most three
+  handoffs, then one synthesis.
+- **Honest failure.** If an agent errors, the event stream carries the error;
+  the run is never silently truncated.
 
 ## How routing works
 

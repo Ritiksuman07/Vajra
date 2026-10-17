@@ -4,6 +4,44 @@ All notable changes to Vajra are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-10-17
+
+Swarm mode: the multi-agent runner is now a real team that talks to itself,
+and you can read every message.
+
+### Added
+
+- **Swarm mode** (`--swarm`, `Ctrl+T`, or the 🐝 toggle in the web UI). The
+  Chief decomposes the goal, and **3–4 specialist agents work in parallel**,
+  each streaming its own answer. A plan guarantee tops up the roster when a
+  small model only names one or two agents, so swarm mode is never a lone
+  agent.
+- **Agent-to-agent messaging.** Agents watch a shared bus and can address each
+  other with `@role: request`. The orchestrator parses those handoffs,
+  dispatches follow-up work, and the answer comes back on the bus. Handoff
+  depth is bounded (default 1 round, max 3 requests) to keep runs cheap.
+- **Peer review round.** A reviewer critiques the team's combined work before
+  the Chief synthesises, and the critique is fed into the final answer.
+- **Agent bus in the TUI.** A live per-agent transcript labelled
+  `🔬 Researcher → 👥 everyone · reply`, with `✉` handoff lines, plus a
+  dedicated scrollable bus screen (`Ctrl+B` / `/bus`) listing every message
+  exchanged.
+- **Swarm view in the web UI.** Plan card, one streaming bubble per agent with
+  avatar and `→ recipient` label, handoff notes, and a highlighted final
+  synthesis.
+- **`POST /api/swarm`** (SSE), streaming typed `agent.SwarmEvent`s: `plan`,
+  `round`, `agent_start`, `token`, `agent_done`, `bus`, `done`, `error`.
+  `POST /api/team` is kept as an alias.
+- CLI swarm renderer: parallel output is buffered per agent and printed as
+  clean labelled blocks; the final synthesis streams live.
+- Tests for task parsing, diversity guarantees, handoff parsing, the full
+  swarm run and the SSE endpoint.
+
+### Changed
+
+- `vajra run --team` is now `--swarm` (`--team` still works).
+- The old sequential "team" runner was replaced by the swarm orchestrator.
+
 ## [1.1.0] — 2026-10-17
 
 A ground-up rewrite into a single, dependency-light Go binary.

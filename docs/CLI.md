@@ -19,13 +19,38 @@ piped.
 |------|-------------|
 | `--model <name>` | Override the model |
 | `--agent <id>` | Agent role (`assistant`, `chief`, `coder`, `researcher`, `executor`, `reviewer`) |
-| `--team` | Plan + delegate across the agent team |
+| `--swarm` | Run a team of agents that plan, work in parallel, review and talk to each other (`--team` is an alias) |
 | `--verify` | Run the verification pipeline on the answer |
 
 ```bash
 vajra run "summarise this file" --agent researcher
 cat main.go | vajra run --agent reviewer "review this"
-vajra run --team "design a CLI for a bookmark manager"
+vajra run --swarm "design a CLI for a bookmark manager"
+```
+
+With `--swarm` you get the plan, each agent's output labelled
+`🔬 Researcher → 👥 everyone · reply`, the `✉` handoffs agents make to each
+other, and the final synthesis streamed live:
+
+```
+🐝 swarm plan
+1. 🔬 Researcher — gather the constraints
+2. 💻 Coder — produce the implementation
+3. ⚙️ Executor — give the exact commands
+4. 🔍 Reviewer — check for gaps
+
+── round 1 — 3 agents working in parallel ──
+⟳ 🔬 Researcher started…
+⟳ 💻 Coder started…
+⟳ ⚙️ Executor started…
+
+💻 Coder → 👥 everyone · reply
+…code…
+
+✉ ⚙️ Executor → 💻 Coder  asked for help: also add tests for the parser
+
+🧭 Chief of Staff → 👤 you · synthesis
+…final answer…
 ```
 
 ### `vajra web [--port <n>]`
@@ -95,7 +120,8 @@ Check platform, config, Ollama reachability, embedding model and routing.
 | `Ctrl+A` | Agent picker |
 | `Ctrl+L` | Session browser |
 | `Ctrl+V` | Toggle verification |
-| `Ctrl+T` | Toggle team mode |
+| `Ctrl+T` | Toggle swarm mode |
+| `Ctrl+B` | Open the agent bus (read what the agents said to each other) |
 | `Ctrl+N` | New session |
 | `Ctrl+U` | Clear the view |
 | `↑` / `↓`, `PgUp` / `PgDn` | Scroll |
@@ -103,5 +129,5 @@ Check platform, config, Ollama reachability, embedding model and routing.
 
 ## TUI slash commands
 
-`/model [name]` · `/agent [id]` · `/models` · `/agents` · `/sessions`
-`/verify` · `/team` · `/pull <model>` · `/new` · `/clear` · `/help` · `/exit`
+`/model [name]` · `/agent [id]` · `/models` · `/agents` · `/sessions` · `/bus`
+`/verify` · `/swarm` (alias `/team`) · `/pull <model>` · `/new` · `/clear` · `/help` · `/exit`

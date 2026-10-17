@@ -156,3 +156,54 @@ func TestCORS(t *testing.T) {
 		t.Error("missing CORS header")
 	}
 }
+
+// TestSwarmStream checks that /api/swarm streams the full multi-agent
+// conversation: the plan, each agent's tokens, the bus traffic and the final
+// synthesis.
+func TestSwarmStream(t *testing.T) {
+	t.Setenv("VAJRA_CONFIG_DIR", t.TempDir())
+
+	// A fake Ollama that answers everything with "ok" — enough to drive the
+	// swarm, and it forces the diversity top-up because the plan is empty.
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]any{"message": map[string]string{"role": "assistant", "content": "ok"}})
+		_ = enc.Encode(map[string]any{"done": true, "eval_count": 1})
+	}))
+	defer fake.Close()
+
+	cfg := config.Load()
+	cfg.OllamaHost = fake.URL
+	cfg.Providers[0].BaseURL = fake.URL
+	srv := New(cfg)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Post(ts.URL+"/api/swarm", "application/json",
+		bytes.NewReader([]byte(`{"message":"do a thing","handoffs":0,"max_agents":3}`)))
+	if err != nil {
+		t.Fatalf("POST /api/swarm: %v", err)
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/event-stream") {
+		t.Fatalf("content-type = %q", ct)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	body := string(b)
+
+	for _, want := range []string{
+		`"type":"plan"`,
+		`"agents":["researcher","coder","executor"]`,
+		`"type":"agent_start"`,
+		`"type":"token"`,
+		`"type":"agent_done"`,
+		`"kind":"critique"`,
+		`"kind":"synthesis"`,
+		`"type":"done"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("swarm stream missing %s\n%s", want, body)
+		}
+	}
+}

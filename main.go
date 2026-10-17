@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Ritiksuman07/Vajra/internal/agent"
@@ -28,7 +29,7 @@ import (
 )
 
 // version is overridable at build time with -ldflags "-X main.version=…".
-var version = "1.1.0"
+var version = "1.2.0"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -111,7 +112,16 @@ func cmdRun(args []string) error {
 		}
 	}
 	if strings.TrimSpace(prompt) == "" {
-		return fmt.Errorf("no prompt given. Usage: vajra run \"your prompt\"")
+		// Tolerate `vajra run --swarm "do a thing"`, where the parser
+		// would otherwise swallow the prompt as the flag's value.
+		if v := fl.get("swarm"); v != "" {
+			prompt = v
+		} else if v := fl.get("team"); v != "" {
+			prompt = v
+		}
+	}
+	if strings.TrimSpace(prompt) == "" {
+		return fmt.Errorf("no prompt given. Usage: vajra run \"your prompt\" [--swarm]")
 	}
 
 	cfg := config.Load()
@@ -128,21 +138,11 @@ func cmdRun(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	if fl.has("team") {
-		_, err := runner.RunTeam(ctx, prompt, func(e agent.Event) {
-			switch e.Kind {
-			case "plan":
-				fmt.Printf("\n\x1b[36mPlan\x1b[0m\n%s\n\n", e.Text)
-			case "step_start":
-				fmt.Printf("\x1b[35m▶ %s\x1b[0m %s\n", e.Role, e.Text)
-			case "token", "final":
-				fmt.Print(e.Text)
-			}
-		})
+	if fl.has("swarm") || fl.has("team") {
+		_, err := runner.RunSwarm(ctx, prompt, agent.SwarmOptions{Handoffs: 1, Concurrent: 3}, printSwarmEvent)
 		fmt.Println()
 		return err
 	}
-
 	var sb strings.Builder
 	resp, err := runner.RunModel(ctx, role, cfg.Model, nil, prompt, func(tok string) error {
 		sb.WriteString(tok)
@@ -473,7 +473,8 @@ func printHelp() {
 	fmt.Println("Usage:")
 	fmt.Println("  vajra                      Launch the terminal UI")
 	fmt.Println("  vajra run \"<prompt>\"       One-shot prompt (streams to stdout)")
-	fmt.Println("     --model <m>  --agent <role>  --team  --verify")
+	fmt.Println("     --model <m>  --agent <role>  --swarm  --verify")
+	fmt.Println("     --swarm: a team of agents that plan, work and review together")
 	fmt.Println("  vajra web                  Web UI in your browser")
 	fmt.Println("  vajra serve [--port <n>]   REST API + web UI")
 	fmt.Println("  vajra models               List available models")
@@ -554,3 +555,98 @@ func indent(s, prefix string) string {
 	}
 	return strings.Join(lines, "\n") + "\n"
 }
+
+// ---------------------------------------------------------------------------
+// Swarm rendering (CLI)
+// ---------------------------------------------------------------------------
+
+// printSwarmEvent renders a swarm run for the terminal: the plan, each
+// agent's output labelled with who is talking to whom, the handoffs agents
+// make to each other, and the final synthesis.
+//
+// Tokens from the parallel work round arrive interleaved, so they are
+// buffered per agent and printed as one labelled block when the agent
+// finishes. The final synthesis streams live, because that is the answer
+// the user is waiting for.
+func printSwarmEvent(ev agent.SwarmEvent) {
+	swarmMu.Lock()
+	defer swarmMu.Unlock()
+
+	switch ev.Type {
+	case "plan":
+		fmt.Printf("\n\x1b[36m🐝 swarm plan\x1b[0m\n%s\n", strings.TrimRight(ev.Text, "\n"))
+	case "round":
+		fmt.Printf("\n\x1b[2m── %s ──\x1b[0m\n", ev.Text)
+	case "bus":
+		if ev.Kind == "handoff" {
+			fmt.Printf("\x1b[33m✉ %s → %s\x1b[0m  %s\n", roleLabel(ev.From), roleLabel(ev.To), ev.Text)
+		}
+	case "agent_start":
+		swarmOpen[ev.Role] = &strings.Builder{}
+		if ev.Kind == "synthesis" {
+			swarmLive[ev.Role] = true
+			fmt.Printf("\n\x1b[35m%s → %s\x1b[0m \x1b[2m%s\x1b[0m\n",
+				roleLabel(ev.Role), roleDest(ev.To), ev.Kind)
+		} else {
+			fmt.Printf("\x1b[2m⟳ %s started…\x1b[0m\n", roleLabel(ev.Role))
+		}
+	case "token":
+		if b, ok := swarmOpen[ev.Role]; ok {
+			b.WriteString(ev.Text)
+		}
+		if swarmLive[ev.Role] {
+			fmt.Print(ev.Text)
+		}
+	case "agent_done":
+		b := swarmOpen[ev.Role]
+		live := swarmLive[ev.Role]
+		delete(swarmOpen, ev.Role)
+		delete(swarmLive, ev.Role)
+
+		text := ev.Text
+		if text == "" && b != nil {
+			text = b.String()
+		}
+		if live {
+			fmt.Println()
+			return
+		}
+		fmt.Printf("\n\x1b[35m%s → %s\x1b[0m \x1b[2m%s\x1b[0m\n",
+			roleLabel(ev.Role), roleDest(ev.To), ev.Kind)
+		fmt.Println(strings.TrimRight(text, "\n"))
+	case "error":
+		fmt.Fprintf(os.Stderr, "\x1b[31merror:\x1b[0m %s\n", ev.Error)
+	}
+}
+
+// roleLabel renders a bus participant for the terminal.
+func roleLabel(id string) string {
+	if r, ok := agent.Get(id); ok {
+		return r.Emoji + " " + r.Name
+	}
+	switch id {
+	case "user":
+		return "👤 You"
+	case "all":
+		return "👥 everyone"
+	}
+	return id
+}
+
+// roleDest renders the recipient of a message.
+func roleDest(id string) string {
+	switch id {
+	case "all", "":
+		return "👥 everyone"
+	case "user":
+		return "👤 you"
+	}
+	return roleLabel(id)
+}
+
+// State for the CLI swarm renderer (events arrive from worker goroutines).
+var (
+	swarmMu   sync.Mutex
+	swarmOpen = map[string]*strings.Builder{}
+	swarmLive = map[string]bool{}
+)

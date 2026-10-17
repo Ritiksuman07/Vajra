@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Ritiksuman07/Vajra/internal/agent"
@@ -76,7 +77,8 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("POST /api/chat/stream", s.handleChatStream)
-	mux.HandleFunc("POST /api/team", s.handleTeam)
+	mux.HandleFunc("POST /api/team", s.handleSwarm)
+	mux.HandleFunc("POST /api/swarm", s.handleSwarm)
 	mux.HandleFunc("POST /api/verify", s.handleVerify)
 
 	// Embedded web UI.
@@ -336,6 +338,13 @@ type chatRequest struct {
 	Model     string `json:"model"`
 	Agent     string `json:"agent"`
 	Verify    bool   `json:"verify"`
+
+	// Swarm tuning (optional; sensible defaults apply).
+	MinAgents  int   `json:"min_agents,omitempty"`
+	MaxAgents  int   `json:"max_agents,omitempty"`
+	Handoffs   int   `json:"handoffs,omitempty"`
+	Concurrent int   `json:"concurrent,omitempty"`
+	Review     *bool `json:"review,omitempty"`
 }
 
 func (s *Server) prepare(req *chatRequest) (*session.Session, error) {
@@ -477,7 +486,12 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 	sse(map[string]any{"type": "done", "session_id": sess.ID, "tokens": resp.EvalTokens})
 }
 
-func (s *Server) handleTeam(w http.ResponseWriter, r *http.Request) {
+// handleSwarm streams a multi-agent swarm run as server-sent events.
+//
+// Every event is a serialised agent.SwarmEvent, so clients receive the plan,
+// each agent's streamed tokens, the agent-to-agent bus traffic, the reviewer
+// critique and the final synthesis.
+func (s *Server) handleSwarm(w http.ResponseWriter, r *http.Request) {
 	var req chatRequest
 	if err := decode(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -494,9 +508,13 @@ func (s *Server) handleTeam(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
 
+	var mu sync.Mutex
 	sse := func(payload any) {
 		b, _ := json.Marshal(payload)
+		mu.Lock()
+		defer mu.Unlock()
 		fmt.Fprintf(w, "data: %s\n\n", b)
 		flusher.Flush()
 	}
@@ -504,8 +522,18 @@ func (s *Server) handleTeam(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
 
-	_, err := s.runner.RunTeam(ctx, req.Message, func(e agent.Event) {
-		sse(map[string]any{"type": e.Kind, "role": e.Role, "text": e.Text})
+	opts := agent.SwarmOptions{
+		MinAgents:  req.MinAgents,
+		MaxAgents:  req.MaxAgents,
+		Handoffs:   req.Handoffs,
+		Concurrent: req.Concurrent,
+	}
+	if req.Review != nil {
+		opts.DisableReview = !*req.Review
+	}
+
+	_, err := s.runner.RunSwarm(ctx, req.Message, opts, func(ev agent.SwarmEvent) {
+		sse(ev)
 	})
 	if err != nil {
 		sse(map[string]any{"type": "error", "error": err.Error()})

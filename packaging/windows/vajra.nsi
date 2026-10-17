@@ -5,7 +5,7 @@
 ; ─────────────────────────────────────────────────────────────
 
 !define APPNAME   "Vajra"
-!define VERSION   "1.1.0"
+!define VERSION   "1.2.0"
 !define PUBLISHER "Vajra Contributors"
 !define URL       "https://github.com/Ritiksuman07/Vajra"
 

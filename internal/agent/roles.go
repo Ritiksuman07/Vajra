@@ -3,8 +3,8 @@
 //
 // An "agent" here is a system-prompt persona plus a preferred model.
 // Vajra is honest about this: it is prompt-level specialisation, not a
-// separate process or container. The team runner chains several roles
-// together for tasks that benefit from planning and review.
+// separate process or container. The swarm orchestrator chains several roles
+// together for tasks that benefit from planning, parallel work and review.
 package agent
 
 import "strings"

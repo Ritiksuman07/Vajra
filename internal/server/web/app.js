@@ -11,7 +11,7 @@ const state = {
   model: '',
   agent: 'assistant',
   verify: false,
-  team: false,
+  swarm: false,
   busy: false,
 };
 
@@ -151,6 +151,76 @@ function scrollDown() {
 }
 function hideWelcome() { const w = $('welcome'); if (w) w.remove(); }
 
+/* ── Swarm rendering ─────────────────────────────────── */
+function agentMeta(role) {
+  return state.agents.find((a) => a.id === role) || { emoji: '•', name: role };
+}
+function destLabel(to) {
+  if (to === 'user') return 'you';
+  if (!to || to === 'all') return 'everyone';
+  const m = agentMeta(to);
+  return m.emoji + ' ' + m.name;
+}
+function addSwarmPlan(ev) {
+  const wrap = document.createElement('div');
+  wrap.className = 'swarm-plan';
+  wrap.innerHTML = `<div class="sp-head">🐝 swarm plan · ${(ev.agents || []).length} agents working in parallel</div>` + md(ev.text || '');
+  $('threadInner').appendChild(wrap);
+  scrollDown();
+}
+// addAgentBubble creates a streaming bubble for one agent and returns a
+// handle the caller uses to append tokens.
+function addAgentBubble(ev) {
+  const m = agentMeta(ev.role);
+  const wrap = document.createElement('div');
+  wrap.className = 'msg' + (ev.kind === 'synthesis' ? ' final' : '');
+  wrap.innerHTML = `<div class="avatar assistant">${m.emoji}</div>
+    <div class="bubble"><div class="who">${esc(m.name)}
+      <span class="arrow">→ ${esc(destLabel(ev.to))}</span>
+      <span class="pill tiny">${esc(ev.kind || '')}</span></div>
+    <div class="body"><span class="cursor"></span></div></div>`;
+  $('threadInner').appendChild(wrap);
+  scrollDown();
+  const body = wrap.querySelector('.body');
+  const handle = { acc: '', body };
+  handle.paint = throttle(() => { body.innerHTML = md(handle.acc) + '<span class="cursor"></span>'; scrollDown(); });
+  handle.finish = () => { if (!handle.acc.trim()) handle.acc = '_no output_'; body.innerHTML = md(handle.acc); };
+  return handle;
+}
+function addHandoff(ev) {
+  const from = agentMeta(ev.from);
+  const to = agentMeta(ev.to);
+  const d = document.createElement('div');
+  d.className = 'handoff';
+  d.textContent = `✉ ${from.name} → ${to.name}: ${ev.text || ''}`;
+  $('threadInner').appendChild(d);
+  scrollDown();
+}
+// streamSwarm runs the multi-agent swarm for the given message.
+async function streamSwarm(text) {
+  const open = {};
+  await streamSSE('/api/swarm', { message: text, handoffs: 1, concurrent: 3 }, (ev) => {
+    switch (ev.type) {
+      case 'plan': addSwarmPlan(ev); break;
+      case 'round': addSys('── ' + ev.text + ' ──'); break;
+      case 'agent_start': open[ev.role] = addAgentBubble(ev); break;
+      case 'token': {
+        const h = open[ev.role];
+        if (h) { h.acc += ev.text; h.paint(); }
+        break;
+      }
+      case 'agent_done': {
+        const h = open[ev.role];
+        if (h) { if (ev.text) h.acc = ev.text; h.finish(); }
+        delete open[ev.role];
+        break;
+      }
+      case 'bus': if (ev.kind === 'handoff') addHandoff(ev); break;
+      case 'error': addSys('Error: ' + ev.error, true); break;
+    }
+  });
+}
+
 /* ── SSE ─────────────────────────────────────────────── */
 async function streamSSE(path, body, onEvent) {
   const res = await fetch(path, {
@@ -193,42 +263,34 @@ async function send() {
 
   addMsg('user', md(text), { who: 'You' });
 
-  const bodyEl = addMsg('assistant', '<span class="cursor"></span>', {
-    who: state.team ? 'Vajra Team' : 'Vajra', emoji: state.team ? '👥' : '🛡️',
-  });
-  let acc = '';
-
-  const paint = throttle(() => { bodyEl.innerHTML = md(acc) + '<span class="cursor"></span>'; scrollDown(); });
-
   try {
-    if (state.team) {
-      await streamSSE('/api/team', { message: text }, (ev) => {
-        if (ev.type === 'plan') { acc += `**Plan**\n\n${ev.text}\n\n---\n\n`; paint(true); }
-        else if (ev.type === 'step_start') { acc += `\n\n**▶ ${ev.role}** — ${ev.text}\n\n`; paint(true); }
-        else if (ev.type === 'token' || ev.type === 'final') { acc += ev.text; paint(); }
-        else if (ev.type === 'step_done') { /* content already streamed */ }
-        else if (ev.type === 'error') { addSys('Error: ' + ev.error, true); }
-      });
-      state.team = false; syncChips();
-    } else {
-      await streamSSE('/api/chat/stream', {
-        message: text, model: state.model, agent: state.agent, verify: state.verify,
-      }, (ev) => {
-        if (ev.type === 'token') { acc += ev.text; paint(); }
-        else if (ev.type === 'start' && ev.session_id) { state.sessionID = ev.session_id; }
-        else if (ev.type === 'verifying') { paint(true); }
-        else if (ev.type === 'verification') {
-          const r = ev.report;
-          const badge = `<span class="verify ${r.needs_review ? 'review' : ''}">${r.needs_review ? '⚠ review' : '✓ verified'} · ${Math.round(r.score)}%</span>`;
-          bodyEl.parentElement.querySelector('.who').insertAdjacentHTML('beforeend', badge);
-        }
-        else if (ev.type === 'error') { addSys('Error: ' + ev.error, true); }
-      });
+    if (state.swarm) {
+      await streamSwarm(text);
+      syncChips();
+      return;
     }
+
+    const bodyEl = addMsg('assistant', '<span class="cursor"></span>', { who: 'Vajra', emoji: '🛡️' });
+    let acc = '';
+    const paint = throttle(() => { bodyEl.innerHTML = md(acc) + '<span class="cursor"></span>'; scrollDown(); });
+
+    await streamSSE('/api/chat/stream', {
+      message: text, model: state.model, agent: state.agent, verify: state.verify,
+    }, (ev) => {
+      if (ev.type === 'token') { acc += ev.text; paint(); }
+      else if (ev.type === 'start' && ev.session_id) { state.sessionID = ev.session_id; }
+      else if (ev.type === 'verifying') { paint(true); }
+      else if (ev.type === 'verification') {
+        const r = ev.report;
+        const badge = `<span class="verify ${r.needs_review ? 'review' : ''}">${r.needs_review ? '⚠ review' : '✓ verified'} · ${Math.round(r.score)}%</span>`;
+        bodyEl.parentElement.querySelector('.who').insertAdjacentHTML('beforeend', badge);
+      }
+      else if (ev.type === 'error') { addSys('Error: ' + ev.error, true); }
+    });
     if (!acc.trim()) acc = '_No content returned._';
     bodyEl.innerHTML = md(acc);
   } catch (e) {
-    bodyEl.innerHTML = `<span style="color:var(--danger)">${esc(e.message)}</span>`;
+    addSys('Error: ' + e.message, true);
   } finally {
     state.busy = false;
     $('sendBtn').disabled = false;
@@ -366,8 +428,11 @@ async function loadHealth() {
 }
 function syncChips() {
   $('verifyChip').classList.toggle('on', state.verify);
-  $('teamChip').classList.toggle('on', state.team);
-  $('teamBtn2').classList.toggle('on', state.team);
+  $('teamChip').classList.toggle('on', state.swarm);
+  $('teamBtn2').classList.toggle('on', state.swarm);
+  $('input').placeholder = state.swarm
+    ? 'Give the swarm a goal…  (agents will plan, work in parallel and review)'
+    : 'Message Vajra…  (Enter to send · Shift+Enter for newline)';
 }
 function autoResize() {
   const t = $('input');
@@ -405,8 +470,8 @@ async function boot() {
   $('modalBack').onclick = (e) => { if (e.target === $('modalBack')) closeModal(); };
   $('modelSelect').onchange = (e) => { state.model = e.target.value; loadHealth(); };
   $('verifyChip').onclick = () => { state.verify = !state.verify; syncChips(); };
-  $('teamChip').onclick = () => { state.team = !state.team; syncChips(); };
-  $('teamBtn2').onclick = () => { state.team = !state.team; syncChips(); };
+  $('teamChip').onclick = () => { state.swarm = !state.swarm; syncChips(); };
+  $('teamBtn2').onclick = () => { state.swarm = !state.swarm; syncChips(); };
   $('themeBtn').onclick = () => {
     const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.theme = next;

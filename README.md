@@ -23,7 +23,7 @@ orchestration** and a **4-layer anti-hallucination pipeline**.
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 [![Downloads](https://img.shields.io/github/downloads/Ritiksuman07/Vajra/total?style=flat-square&color=magenta)](https://github.com/Ritiksuman07/Vajra/releases)
 
-**[Quick start](#-quick-start)** · **[Features](#-features)** · **[Web GUI](#-web-gui)** · **[Agents](#-the-agent-team)** · **[Verification](#-anti-hallucination)** · **[Docs](docs/)** · **[FAQ](docs/FAQ.md)**
+**[Quick start](#-quick-start)** · **[Features](#-features)** · **[Web GUI](#-web-gui)** · **[Agent swarm](#-the-agent-swarm)** · **[Verification](#-anti-hallucination)** · **[Docs](docs/)** · **[FAQ](docs/FAQ.md)**
 
 </div>
 
@@ -31,8 +31,8 @@ orchestration** and a **4-layer anti-hallucination pipeline**.
 
 ```text
 ╭──────────────────────────────────────────────╮
-│  🛡️  vajra 1.1.0   llama3.1:8b   ● ready      │
-│                 verify:on  team:off           │
+│  🛡️  vajra 1.2.0   llama3.1:8b   ● ready      │
+│                 verify:on  swarm:off          │
 ╰──────────────────────────────────────────────╯
 
   You  write a Go function that reverses a linked list
@@ -58,10 +58,11 @@ orchestration** and a **4-layer anti-hallucination pipeline**.
 Most "AI agent" projects need Python, Node, Docker **and** an API key before
 they do anything. Vajra is different:
 
-- 🧩 **One static binary.** ~13 MB. No runtime, no containers, no `pip install`.
+- 🧩 **One static binary.** ~14 MB. No runtime, no containers, no `pip install`.
 - 🔒 **Private by construction.** Prompts go to `localhost:11434`. Nothing else.
 - 🛡️ **Honest about trust.** A real verification pipeline, with the limits documented.
-- 🧠 **A team, not a chatbot.** Specialists that plan, execute and review.
+- 🧠 **A swarm, not a chatbot.** Specialists that plan, work in parallel,
+  review each other and talk over a shared bus you can read.
 - 🖥️ **Three interfaces.** Terminal, browser, or HTTP API — your choice.
 
 ## 🚀 Quick start
@@ -76,7 +77,7 @@ ollama pull llama3.1:8b
 
 | Platform | Install |
 |----------|---------|
-| **Windows** | Download `VajraSetup-1.1.0-win-x64.exe` from [Releases](https://github.com/Ritiksuman07/Vajra/releases) |
+| **Windows** | Download `VajraSetup-1.2.0-win-x64.exe` from [Releases](https://github.com/Ritiksuman07/Vajra/releases) |
 | **Linux / macOS** | `curl -fsSL https://raw.githubusercontent.com/Ritiksuman07/Vajra/main/scripts/install.sh \| bash` |
 | **Any (Go)** | `git clone https://github.com/Ritiksuman07/Vajra && cd Vajra && make build` |
 
@@ -95,7 +96,7 @@ vajra                                  # interactive TUI
 vajra web                              # web GUI  →  http://localhost:4096
 vajra run "explain goroutines"         # one-shot, streams to stdout
 cat main.go | vajra run --agent reviewer "review this"
-vajra run --team "design a CLI for a bookmark manager"   # multi-agent
+vajra run --swarm "design a CLI for a bookmark manager"   # multi-agent swarm
 vajra serve --port 8080                # REST API + SSE
 ```
 
@@ -107,7 +108,7 @@ dark/light themes and a provider manager.
 
 ```
 ┌──────────────────┬───────────────────────────────────────────────┐
-│ 🛡️ Vajra         │  llama3.1:8b            ollama      👥 Team     │
+│ 🛡️ Vajra         │  llama3.1:8b            ollama      🐝 Swarm     │
 │ ＋ New chat       ├───────────────────────────────────────────────┤
 │                  │  🧑 how do I profile a Go program?            │
 │ AGENTS           │                                               │
@@ -123,20 +124,56 @@ dark/light themes and a provider manager.
 └──────────────────┴───────────────────────────────────────────────┘
 ```
 
-## 🧠 The agent team
+## 🐝 The agent swarm
 
 | Agent | Role | Suggested model |
 |-------|------|-----------------|
-| 🧭 **Chief of Staff** | Plans, decomposes, delegates | `llama3.1:70b` |
+| 🧭 **Chief of Staff** | Plans, decomposes, delegates, synthesises | `llama3.1:70b` |
 | 💻 **Coder** | Writes and explains code | `qwen2.5-coder:7b` |
 | 🔬 **Researcher** | Analyses and summarises | `llama3.1:8b` |
 | ⚙️ **Executor** | Produces exact commands | `phi3.5` |
 | 🔍 **Reviewer** | Reviews for correctness & security | `llama3.1:8b` |
 | 🛡️ **Assistant** | Everyday general help | `llama3.1:8b` |
 
-**Team mode** chains them: the Chief plans, each step is routed to the right
-specialist (who sees the work so far), then the Chief synthesises a final
-answer. Enable with `--team`, `Ctrl+T`, or the toggle in the web UI.
+Turn on **swarm mode** and the Chief breaks your goal down, **3–4 specialists
+work in parallel**, a reviewer critiques the result, and the agents can ask
+each other for follow-ups (`@role: request`). Every message between them is
+shown, so you can read the whole conversation — not just the final answer.
+
+```
+🐝 Swarm                                         3 agents
+  plan
+    1. 🔬 Researcher — find the constraints
+    2. 💻 Coder — produce the implementation
+    3. 🔍 Reviewer — check for gaps
+
+── round 1 — 3 agents working in parallel ──
+  🔬 Researcher → everyone · reply     ⟳
+    Summary: three key constraints…
+  💻 Coder → everyone · reply
+    ```go
+    func Reverse(head *Node) *Node { … }
+    ```
+  ✉ ⚙️ Executor → 💻 Coder   asked for help: add tests for the parser
+  💻 Coder → ⚙️ Executor · reply
+    Added table-driven tests…
+
+── round 2 — the reviewer critiques the team's work ──
+  🔍 Reviewer → everyone · critique
+    Verdict: pass. Gaps: no error handling on empty input.
+
+── chief is synthesising the final answer ──
+  🧭 Chief of Staff → you · synthesis
+    Here's the finished implementation…
+```
+
+Enable it with `--swarm`, `Ctrl+T` in the TUI (then `Ctrl+B` to read the full
+agent bus), or the 🐝 toggle in the web UI.
+
+Swarm mode always runs at least three distinct agents, even if a small local
+model only names one — Vajra tops the roster up from a default rotation. Cost
+is bounded: one parallel round, one critique, at most three handoffs, one
+synthesis.
 
 ## ✅ Anti-hallucination
 
@@ -186,7 +223,8 @@ Routing is automatic: `claude-*` → Anthropic, `gpt-*` → OpenAI,
 | Works without an API key | ✅ | ❌ | ✅ |
 | Terminal UI | ✅ | ❌ | ⚠️ varies |
 | Built-in web GUI | ✅ | ✅ | ❌ |
-| Multi-agent team mode | ✅ | ❌ | ⚠️ varies |
+| Multi-agent swarm mode | ✅ | ❌ | ⚠️ varies |
+| Readable agent-to-agent messages | ✅ | ❌ | ❌ |
 | Verification pipeline | ✅ | ❌ | ❌ |
 | Zero telemetry | ✅ | ❌ | ⚠️ varies |
 
@@ -197,7 +235,7 @@ Layered into focused packages — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.m
 ```
 main.go ─┬─ internal/tui      (Bubble Tea terminal UI)
          ├─ internal/server   (REST + SSE + embedded web UI)
-         └─ internal/agent    (roles + multi-agent team)
+         └─ internal/agent    (roles + swarm orchestrator)
                  │
        internal/llm  ◀── internal/verify
         (router)          (4-layer pipeline)
@@ -228,7 +266,7 @@ vajra config --set ollama_host=http://localhost:11434
 | [Setup](docs/SETUP.md) | Install Ollama + Vajra, troubleshooting |
 | [CLI reference](docs/CLI.md) | Every command, flag, keybinding |
 | [HTTP API](docs/API.md) | REST + SSE endpoints |
-| [Agents](docs/agents.md) | Roles, team mode, routing |
+| [Agents](docs/agents.md) | Roles, swarm mode, agent bus, routing |
 | [Architecture](docs/ARCHITECTURE.md) | How the pieces fit |
 | [FAQ](docs/FAQ.md) | Privacy, specs, common questions |
 | [Roadmap](docs/TODO.md) | What shipped, what's next |

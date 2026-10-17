@@ -31,7 +31,7 @@ ISCC /DVersion=1.2.0 packaging\windows\vajra.iss
 
 Output: `dist\releases\VajraSetup-<version>-win-x64.exe`
 
-One-shot helper: `pwsh scripts\build.ps1 -Version 1.1.0`
+One-shot helper: `pwsh scripts\build.ps1 -Version 1.2.0`
 
 > Inno Setup is not bundled. Install it with `choco install innosetup`
 > or from <https://jrsoftware.org/is/>. If it is missing, `build.ps1`
@@ -41,8 +41,8 @@ One-shot helper: `pwsh scripts\build.ps1 -Version 1.1.0`
 
 ```bash
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/vajra-linux-amd64 .
-bash packaging/linux/build-appimage.sh 1.1.0   # needs appimagetool
-bash packaging/linux/build-deb.sh 1.1.0       # needs dpkg-deb
+bash packaging/linux/build-appimage.sh 1.2.0   # needs appimagetool
+bash packaging/linux/build-deb.sh 1.2.0       # needs dpkg-deb
 ```
 
 `scripts/build.sh` cross-compiles Linux and macOS binaries and tars them
@@ -55,6 +55,6 @@ first launch — right-click → **Open**, or `xattr -dr com.apple.quarantine va
 
 ## Automated releases
 
-Pushing a tag like `v1.1.0` triggers `.github/workflows/release.yml`, which
+Pushing a tag like `v1.2.0` triggers `.github/workflows/release.yml`, which
 cross-compiles every target, builds the Windows installer, and publishes a
 GitHub release with checksums.

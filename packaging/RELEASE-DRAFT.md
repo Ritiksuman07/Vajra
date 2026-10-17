@@ -1,4 +1,4 @@
-# Vajra v1.1.0 — Your machine. Your models. Your data. 🛡️
+# Vajra v1.2.0 — Swarm mode: watch your agents talk to each other 🐝
 
 Vajra is a **local-first AI agent workspace** in a single Go binary. It runs
 entirely on your computer through [Ollama](https://ollama.com): a terminal UI,
@@ -8,15 +8,17 @@ verification pipeline. **No telemetry. No account. No cloud.**
 ## ✨ Highlights
 
 - **One binary, zero runtime.** No Python, no Node, no Docker required.
+- **🐝 Swarm mode (new)** — 3–4 specialists plan, work **in parallel**, review
+  each other and hand work off with `@role: requests`. You can read every
+  message they exchange, in the TUI (`Ctrl+B`) and in the web UI.
 - **Terminal UI** with token streaming, session history, model/agent pickers.
 - **Web GUI** (`vajra web`) — self-contained, offline, dark & light themes.
-- **Multi-agent team mode** — a Chief plans, specialists execute, the Chief synthesises.
 - **4-layer verification** — fast checks, semantic similarity, LLM-as-a-judge, human escalation.
 - **Optional cloud** — `vajra connect openai` (or Anthropic, OpenRouter, Groq, Together) if *you* choose.
 
 ## 📦 Install
 
-**Windows** — download `VajraSetup-1.1.0-win-x64.exe` and run it.
+**Windows** — download `VajraSetup-1.2.0-win-x64.exe` and run it.
 
 **Linux / macOS**
 
@@ -42,15 +44,35 @@ vajra run "explain goroutines"   # one-shot, streams to stdout
 vajra doctor                # check your setup
 ```
 
-## 🧠 The agent team
+## 🐝 The agent swarm
 
 | Agent | Role |
 |-------|------|
-| 🧭 **Chief of Staff** | Plans, decomposes and delegates |
+| 🧭 **Chief of Staff** | Plans, decomposes and delegates, synthesises the answer |
 | 💻 **Coder** | Writes and explains code |
 | 🔬 **Researcher** | Analyses and summarises |
 | ⚙️ **Executor** | Produces exact commands and file contents |
 | 🔍 **Reviewer** | Reviews for correctness and security |
+
+```bash
+vajra run --swarm "add tests to a small Go project and review them"
+```
+
+The Chief plans, the specialists work in parallel, the reviewer critiques, and
+agents can ask each other for follow-ups. Every message is shown with its
+sender and recipient, so you can see the team think:
+
+```
+🐝 swarm plan · 3 agents
+── round 1 — 3 agents working in parallel ──
+  🔬 Researcher → 👥 everyone · reply
+  💻 Coder → 👥 everyone · reply
+  ✉ ⚙️ Executor → 💻 Coder   asked for help: also add tests for the parser
+  💻 Coder → ⚙️ Executor · reply
+── round 2 — the reviewer critiques the team's work ──
+  🔍 Reviewer → 👥 everyone · critique
+  🧭 Chief of Staff → 👤 you · synthesis
+```
 
 ## ✅ Verification pipeline
 

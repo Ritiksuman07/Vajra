@@ -55,7 +55,7 @@ Project layout (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)):
 main.go                 CLI entrypoint
 internal/config         configuration
 internal/llm            backends + router
-internal/agent          roles + team runner
+internal/agent          roles + swarm orchestrator
 internal/verify         verification pipeline
 internal/session        session storage
 internal/server         REST API + embedded web UI
