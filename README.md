@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/banner.svg" alt="Vajra — local-first AI agent workspace" width="880" />
+
 # 🛡️ Vajra
 
 ### The local-first AI agent workspace — your machine, your models, your data.
