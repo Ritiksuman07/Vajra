@@ -31,7 +31,7 @@ body:
     attributes:
       label: Vajra version
       description: Output of `vajra version`
-      placeholder: "vajra 1.2.0"
+      placeholder: "vajra 1.3.0"
     validations:
       required: true
   - type: input

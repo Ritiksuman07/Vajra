@@ -3,14 +3,14 @@
 ;
 ;  Build:  ISCC packaging\windows\vajra.iss
 ;  With a version override:
-;          ISCC /DVersion=1.2.0 packaging\windows\vajra.iss
+;          ISCC /DVersion=1.3.0 packaging\windows\vajra.iss
 ;
 ;  Expects the compiled binary at dist\vajra.exe
 ;  (produced by:  go build -o dist\vajra.exe .  )
 ; ─────────────────────────────────────────────────────────────
 
 #ifndef Version
-  #define Version "1.2.0"
+  #define Version "1.3.0"
 #endif
 
 #define AppName "Vajra"

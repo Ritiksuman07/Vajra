@@ -12,7 +12,7 @@ attach or index.
 GET /api/health
 ```
 ```json
-{ "name": "vajra", "status": "ok", "version": "1.2.0" }
+{ "name": "vajra", "status": "ok", "version": "1.3.0" }
 ```
 
 ## Status
@@ -22,7 +22,7 @@ GET /api/status
 ```
 Returns the active config plus backend reachability.
 ```json
-{ "config": { … }, "health": { "ollama": true }, "version": "1.2.0" }
+{ "config": { … }, "health": { "ollama": true }, "version": "1.3.0" }
 ```
 
 ## Models

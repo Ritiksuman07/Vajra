@@ -26,12 +26,12 @@ go build -o dist\vajra.exe .
 # 2. compile the installer (Inno Setup 6)
 ISCC packaging\windows\vajra.iss
 # or with a version override
-ISCC /DVersion=1.2.0 packaging\windows\vajra.iss
+ISCC /DVersion=1.3.0 packaging\windows\vajra.iss
 ```
 
 Output: `dist\releases\VajraSetup-<version>-win-x64.exe`
 
-One-shot helper: `pwsh scripts\build.ps1 -Version 1.2.0`
+One-shot helper: `pwsh scripts\build.ps1 -Version 1.3.0`
 
 > Inno Setup is not bundled. Install it with `choco install innosetup`
 > or from <https://jrsoftware.org/is/>. If it is missing, `build.ps1`
@@ -41,8 +41,8 @@ One-shot helper: `pwsh scripts\build.ps1 -Version 1.2.0`
 
 ```bash
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/vajra-linux-amd64 .
-bash packaging/linux/build-appimage.sh 1.2.0   # needs appimagetool
-bash packaging/linux/build-deb.sh 1.2.0       # needs dpkg-deb
+bash packaging/linux/build-appimage.sh 1.3.0   # needs appimagetool
+bash packaging/linux/build-deb.sh 1.3.0       # needs dpkg-deb
 ```
 
 `scripts/build.sh` cross-compiles Linux and macOS binaries and tars them

@@ -1,9 +1,9 @@
 # -------------------------------------------------------------
 #  Vajra - Windows build script
-#  Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Version 1.2.0]
+#  Usage:  powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Version 1.3.0]
 # -------------------------------------------------------------
 param(
-    [string]$Version = "1.2.0"
+    [string]$Version = "1.3.0"
 )
 
 $ErrorActionPreference = "Stop"

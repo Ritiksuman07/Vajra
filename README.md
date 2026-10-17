@@ -31,7 +31,7 @@ orchestration** and a **4-layer anti-hallucination pipeline**.
 
 ```text
 ╭──────────────────────────────────────────────╮
-│  🛡️  vajra 1.2.0   llama3.1:8b   ● ready      │
+│  🛡️  vajra 1.3.0   llama3.1:8b   ● ready      │
 │                 verify:on  swarm:off          │
 ╰──────────────────────────────────────────────╯
 
@@ -79,7 +79,7 @@ ollama pull llama3.1:8b
 
 | Platform | Install |
 |----------|---------|
-| **Windows** | Download `VajraSetup-1.2.0-win-x64.exe` from [Releases](https://github.com/Ritiksuman07/Vajra/releases) |
+| **Windows** | Download the `VajraSetup-<version>-win-x64.exe` installer from [Releases](https://github.com/Ritiksuman07/Vajra/releases) |
 | **Linux / macOS** | `curl -fsSL https://raw.githubusercontent.com/Ritiksuman07/Vajra/main/scripts/install.sh \| bash` |
 | **Any (Go)** | `git clone https://github.com/Ritiksuman07/Vajra && cd Vajra && make build` |
 

@@ -6,7 +6,7 @@
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 
-VERSION="${1:-1.2.0}"
+VERSION="${1:-1.3.0}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
