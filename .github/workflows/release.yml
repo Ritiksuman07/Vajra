@@ -7,16 +7,41 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g. v1.2.0)"
-        required: false
+        description: "Tag to release, e.g. v1.2.0 (required: a manual run has no tag to read)"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
+  preflight:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve and check the version
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw="${{ inputs.version || github.ref_name }}"
+          v="${raw#v}"
+          # A tag push always passes. A manual run has to name a real version,
+          # otherwise the artifacts would be stamped with the branch name and the
+          # release would be created against a branch instead of a tag.
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'${raw}' is not a release version. Set the 'version' input to a tag such as v1.2.0."
+            exit 1
+          fi
+          echo "version=${v}" >> "$GITHUB_OUTPUT"
+          echo "releasing ${v}"
+
   build:
     name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
@@ -38,9 +63,13 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           NAME="vajra-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
-          go build -trimpath -ldflags "-s -w" -o "$NAME" .
+          # Stamp the version from the tag into the binary as well, so every
+          # artifact reports the release it came from rather than whatever
+          # main.go happens to say.
+          go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "$NAME" .
           echo "NAME=$NAME" >> $GITHUB_ENV
 
       - name: Package (tar.gz / zip)
@@ -66,7 +95,7 @@ jobs:
   windows-installer:
     name: Windows installer (Inno Setup)
     runs-on: windows-latest
-    needs: build
+    needs: [preflight, build]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -76,7 +105,7 @@ jobs:
       - name: Build binary
         shell: pwsh
         run: |
-          $v = "${{ github.ref_name }}".TrimStart("v")
+          $v = "${{ needs.preflight.outputs.version }}"
           go build -trimpath -ldflags "-s -w -X main.version=$v" -o dist/vajra.exe .
 
       - name: Install Inno Setup
@@ -85,21 +114,32 @@ jobs:
       - name: Compile installer
         shell: pwsh
         run: |
-          $v = "${{ github.ref_name }}".TrimStart("v")
+          $v = "${{ needs.preflight.outputs.version }}"
           $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" }
           & $iscc "/DVersion=$v" packaging\windows\vajra.iss
+
+      - name: Checksum installer
+        shell: pwsh
+        run: |
+          $f = "dist/releases/VajraSetup-${{ needs.preflight.outputs.version }}-win-x64.exe"
+          $hash = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+          # Same shape as the sha256sum files the other artifacts get:
+          # "<hash>  <filename>", LF line ending, no BOM.
+          [System.IO.File]::WriteAllText("$f.sha256", "$hash  $(Split-Path $f -Leaf)`n")
 
       - name: Upload installer
         uses: actions/upload-artifact@v7
         with:
           name: windows-installer
-          path: dist/releases/*.exe
+          path: |
+            dist/releases/*.exe
+            dist/releases/*.exe.sha256
 
   release:
     name: Publish release
     runs-on: ubuntu-latest
-    needs: [build, windows-installer]
+    needs: [preflight, build, windows-installer]
     steps:
       - uses: actions/checkout@v7
 
@@ -117,7 +157,8 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          name: Vajra ${{ github.ref_name }}
+          tag_name: v${{ needs.preflight.outputs.version }}
+          name: Vajra v${{ needs.preflight.outputs.version }}
           body_path: packaging/RELEASE-DRAFT.md
           files: release/*
           draft: false
