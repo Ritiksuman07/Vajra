@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Vajra — local-first AI agent workspace in one Go binary">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0c11"/>
+      <stop offset="1" stop-color="#131730"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbe4ff"/>
+    </linearGradient>
+    <radialGradient id="gA" cx="0.12" cy="0" r="1">
+      <stop offset="0" stop-color="#7c5cff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#7c5cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gB" cx="1" cy="1" r="1">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#gA)"/>
+  <rect width="1280" height="640" fill="url(#gB)"/>
+
+  <!-- mark -->
+  <g transform="translate(96 148) scale(0.9)"><path transform="scale(1)" d="none"/></g>
+  <g transform="translate(96 150)">
+    <g transform="scale(1.05)">
+      <path d="M128 30 l68 28 v58 c0 48 -31 82 -68 104 c-37 -22 -68 -56 -68 -104 v-58 z" fill="url(#acc)" opacity="0.16"/>
+      <path d="M128 34 l64 26 v56 c0 46 -29 79 -64 100 c-35 -21 -64 -54 -64 -100 v-56 z" fill="none" stroke="url(#acc)" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M138 62 l-42 72 h31 l-15 60 48 -78 h-31 z" fill="url(#bolt)"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <text x="330" y="240" font-family="Segoe UI, Inter, system-ui, sans-serif"
+        font-size="118" font-weight="700" fill="#e7e9f0" letter-spacing="3">Vajra</text>
+  <text x="336" y="300" font-family="Segoe UI, Inter, system-ui, sans-serif"
+        font-size="34" fill="#8b93a7">local-first AI agent workspace</text>
+  <text x="336" y="352" font-family="Segoe UI, Inter, system-ui, sans-serif"
+        font-size="24" fill="#5d6577">one Go binary · prompts never leave your machine</text>
+
+  <!-- feature strip -->
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif" font-size="22" fill="#c8cee0">
+    <rect x="336" y="404" width="196" height="46" rx="23" fill="#151a26" stroke="#232838"/>
+    <text x="434" y="434" text-anchor="middle">🐝 agent swarm</text>
+
+    <rect x="548" y="404" width="230" height="46" rx="23" fill="#171226" stroke="#4b3f7a"/>
+    <text x="663" y="434" text-anchor="middle" fill="#d9ccff">🛡 anti-hallucination</text>
+
+    <rect x="794" y="404" width="168" height="46" rx="23" fill="#151a26" stroke="#232838"/>
+    <text x="878" y="434" text-anchor="middle">📄 file context</text>
+  </g>
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif" font-size="22" fill="#c8cee0">
+    <rect x="336" y="466" width="196" height="46" rx="23" fill="#151a26" stroke="#232838"/>
+    <text x="434" y="496" text-anchor="middle">🖥 terminal UI</text>
+
+    <rect x="548" y="466" width="230" height="46" rx="23" fill="#151a26" stroke="#232838"/>
+    <text x="663" y="496" text-anchor="middle">🌐 offline web GUI</text>
+
+    <rect x="794" y="466" width="168" height="46" rx="23" fill="#151a26" stroke="#232838"/>
+    <text x="878" y="496" text-anchor="middle">🔌 REST API</text>
+  </g>
+
+  <rect x="0" y="596" width="1280" height="6" fill="url(#acc)"/>
+  <text x="1260" y="628" text-anchor="end" font-family="Segoe UI, Inter, system-ui, sans-serif" font-size="18" fill="#5d6577">github.com/Ritiksuman07/Vajra · MIT · runs on Ollama, fully offline</text>
+</svg>

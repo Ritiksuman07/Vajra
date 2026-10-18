@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="1200" height="420" role="img" aria-label="Vajra swarm: chief plans, three specialists work in parallel, reviewer critiques, agents hand off on a readable bus, chief synthesises">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0c11"/>
+      <stop offset="1" stop-color="#10131f"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b7288"/>
+    </marker>
+    <marker id="ahv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8f7bff"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="420" fill="url(#bg)"/>
+
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <!-- goal -->
+    <rect x="60" y="40" width="220" height="66" rx="12" fill="#12151f" stroke="#232838"/>
+    <text x="170" y="68" text-anchor="middle" font-size="18" font-weight="600" fill="#e7e9f0">your goal</text>
+    <text x="170" y="92" text-anchor="middle" font-size="13" fill="#8b93a7">vajra run --swarm "…"</text>
+
+    <line x1="280" y1="73" x2="324" y2="73" stroke="#3b4256" stroke-width="1.8" marker-end="url(#ah)"/>
+
+    <!-- chief -->
+    <rect x="330" y="40" width="230" height="66" rx="12" fill="#151225" stroke="#5b4090"/>
+    <text x="445" y="68" text-anchor="middle" font-size="18" font-weight="600" fill="#d9ccff">chief of staff</text>
+    <text x="445" y="92" text-anchor="middle" font-size="13" fill="#a795d6">plans · decomposes · delegates</text>
+
+    <line x1="445" y1="106" x2="445" y2="140" stroke="#3b4256" stroke-width="1.8" marker-end="url(#ah)"/>
+    <line x1="445" y1="140" x2="180" y2="176" stroke="#3b4256" stroke-width="1.8" marker-end="url(#ah)"/>
+    <line x1="445" y1="140" x2="600" y2="176" stroke="#3b4256" stroke-width="1.8" marker-end="url(#ah)"/>
+    <line x1="445" y1="140" x2="1020" y2="176" stroke="#3b4256" stroke-width="1.8" marker-end="url(#ah)"/>
+
+    <!-- specialists, parallel -->
+    <g>
+      <rect x="70" y="180" width="220" height="72" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="180" y="208" text-anchor="middle" font-size="17" font-weight="600" fill="#e7e9f0">researcher</text>
+      <text x="180" y="231" text-anchor="middle" font-size="13" fill="#8b93a7">analyses · summarises</text>
+      <text x="180" y="247" text-anchor="middle" font-size="12" fill="#22d3ee">round 1 · parallel</text>
+    </g>
+    <g>
+      <rect x="490" y="180" width="220" height="72" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="600" y="208" text-anchor="middle" font-size="17" font-weight="600" fill="#e7e9f0">coder</text>
+      <text x="600" y="231" text-anchor="middle" font-size="13" fill="#8b93a7">writes · explains code</text>
+      <text x="600" y="247" text-anchor="middle" font-size="12" fill="#22d3ee">round 1 · parallel</text>
+    </g>
+    <g>
+      <rect x="910" y="180" width="220" height="72" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="1020" y="208" text-anchor="middle" font-size="17" font-weight="600" fill="#e7e9f0">executor / reviewer</text>
+      <text x="1020" y="231" text-anchor="middle" font-size="13" fill="#8b93a7">exact commands · critique</text>
+      <text x="1020" y="247" text-anchor="middle" font-size="12" fill="#22d3ee">round 2 · review</text>
+    </g>
+
+    <!-- handoff arc -->
+    <path d="M700 224 C 760 160, 860 160, 908 214" fill="none" stroke="#8f7bff" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#ahv)"/>
+    <text x="800" y="152" text-anchor="middle" font-size="14" fill="#b7aaff">@role: handoffs (bounded)</text>
+
+    <!-- bus -->
+    <rect x="60" y="286" width="1070" height="56" rx="14" fill="#0e1322" stroke="#2b3145"/>
+    <rect x="60" y="286" width="6" height="56" fill="url(#acc)"/>
+    <text x="92" y="310" font-size="15" font-weight="600" fill="#c8cee0">shared bus — every message is shown and stored</text>
+    <text x="92" y="331" font-size="13" fill="#7d8598">🔬 research reply · 💻 code reply · ✉ executor → coder handoff · 🔍 critique · 🧭 synthesis</text>
+
+    <!-- synthesis -->
+    <path d="M560 252 C 620 260, 660 268, 706 280" fill="none" stroke="#3b4256" stroke-width="1.6" marker-end="url(#ah)"/>
+    <rect x="710" y="360" width="420" height="46" rx="12" fill="#151225" stroke="#5b4090"/>
+    <text x="920" y="389" text-anchor="middle" font-size="16" font-weight="600" fill="#d9ccff">chief synthesises the final answer</text>
+  </g>
+
+  <rect x="0" y="416" width="1200" height="4" fill="url(#acc)" opacity="0.5"/>
+</svg>

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="Vajra four-layer verification pipeline: fast checks, semantic similarity, LLM judge, human escalation">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0c11"/>
+      <stop offset="1" stop-color="#10131f"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b7288"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="320" fill="url(#bg)"/>
+
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <!-- layer 1 -->
+    <g>
+      <rect x="40" y="52" width="250" height="118" rx="14" fill="#12151f" stroke="#232838"/>
+      <text x="62" y="86" font-size="22" font-weight="700" fill="#e7e9f0">1 · fast checks</text>
+      <text x="62" y="112" font-size="15" fill="#8b93a7">structure · code fences</text>
+      <text x="62" y="134" font-size="15" fill="#8b93a7">PII · citation presence</text>
+      <text x="62" y="158" font-size="15" fill="#22d3ee">~µs</text>
+    </g>
+    <!-- layer 2 -->
+    <g>
+      <rect x="330" y="52" width="250" height="118" rx="14" fill="#151225" stroke="#5b4090"/>
+      <text x="352" y="86" font-size="22" font-weight="700" fill="#d9ccff">2 · similarity</text>
+      <text x="352" y="112" font-size="15" fill="#a795d6">local embeddings, cosine</text>
+      <text x="352" y="134" font-size="15" fill="#a795d6">grounded in your sources</text>
+      <text x="352" y="158" font-size="15" fill="#22d3ee">~50 ms</text>
+    </g>
+    <!-- layer 3 -->
+    <g>
+      <rect x="620" y="52" width="250" height="118" rx="14" fill="#12151f" stroke="#232838"/>
+      <text x="642" y="86" font-size="22" font-weight="700" fill="#e7e9f0">3 · LLM judge</text>
+      <text x="642" y="112" font-size="15" fill="#8b93a7">rubric: correctness,</text>
+      <text x="642" y="134" font-size="15" fill="#8b93a7">completeness, faithfulness</text>
+      <text x="642" y="158" font-size="15" fill="#22d3ee">~1 s</text>
+    </g>
+    <!-- layer 4 -->
+    <g>
+      <rect x="910" y="52" width="250" height="118" rx="14" fill="#12151f" stroke="#232838"/>
+      <text x="932" y="86" font-size="22" font-weight="700" fill="#e7e9f0">4 · escalation</text>
+      <text x="932" y="112" font-size="15" fill="#8b93a7">low confidence is flagged</text>
+      <text x="932" y="134" font-size="15" fill="#8b93a7">— shown, never hidden</text>
+      <text x="932" y="158" font-size="15" fill="#22d3ee">instant</text>
+    </g>
+
+    <g stroke="#3b4256" stroke-width="1.8" marker-end="url(#ah)" fill="none">
+      <line x1="292" y1="111" x2="326" y2="111"/>
+      <line x1="582" y1="111" x2="616" y2="111"/>
+      <line x1="872" y1="111" x2="906" y2="111"/>
+    </g>
+  </g>
+
+  <!-- grounding note -->
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <rect x="40" y="206" width="1120" height="66" rx="14" fill="none" stroke="#2b3145" stroke-dasharray="6 5"/>
+    <text x="64" y="234" font-size="16" fill="#9aa2b5">layer 2 is <tspan fill="#22d3ee" font-weight="600">grounded</tspan>: it compares the answer against what the model was actually given —</text>
+    <text x="64" y="260" font-size="16" fill="#9aa2b5">your attached files and the passages retrieval cited — and reports honestly when there was nothing to check.</text>
+  </g>
+
+  <rect x="0" y="296" width="1200" height="4" fill="url(#acc)" opacity="0.5"/>
+  <text x="600" y="315" text-anchor="middle" font-family="Segoe UI, Inter, system-ui, sans-serif" font-size="13" fill="#5d6577">heuristics, not proof — Vajra surfaces uncertainty so you decide what to trust</text>
+</svg>

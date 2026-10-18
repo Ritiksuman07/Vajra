@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" width="1200" height="500" role="img" aria-label="Vajra architecture: three interfaces, agent core, services and local data">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0c11"/>
+      <stop offset="1" stop-color="#10131f"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b7288"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="500" fill="url(#bg)"/>
+
+  <text x="600" y="30" text-anchor="middle" font-family="Segoe UI, Inter, system-ui, sans-serif" font-size="15" fill="#5d6577">single Go binary · everything below, no runtime · config in ~/.vajra</text>
+
+  <!-- row 1: interfaces -->
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <g>
+      <rect x="110" y="48" width="280" height="58" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="250" y="74" text-anchor="middle" font-size="19" font-weight="600" fill="#e7e9f0">CLI + Terminal UI</text>
+      <text x="250" y="96" text-anchor="middle" font-size="13" fill="#8b93a7">interactive TUI · one-shot runs</text>
+    </g>
+    <g>
+      <rect x="460" y="48" width="280" height="58" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="600" y="74" text-anchor="middle" font-size="19" font-weight="600" fill="#e7e9f0">Web GUI</text>
+      <text x="600" y="96" text-anchor="middle" font-size="13" fill="#8b93a7">embedded · offline · streaming</text>
+    </g>
+    <g>
+      <rect x="810" y="48" width="280" height="58" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="950" y="74" text-anchor="middle" font-size="19" font-weight="600" fill="#e7e9f0">REST API + SSE</text>
+      <text x="950" y="96" text-anchor="middle" font-size="13" fill="#8b93a7">scripts · integrations · CI</text>
+    </g>
+  </g>
+
+  <g stroke="#3b4256" stroke-width="1.6" marker-end="url(#ah)" fill="none">
+    <line x1="250" y1="106" x2="470" y2="158"/>
+    <line x1="600" y1="106" x2="600" y2="158"/>
+    <line x1="950" y1="106" x2="730" y2="158"/>
+  </g>
+
+  <!-- row 2: agent core -->
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <rect x="300" y="162" width="600" height="62" rx="12" fill="#151225" stroke="#4b3f7a"/>
+    <text x="600" y="189" text-anchor="middle" font-size="20" font-weight="600" fill="#cdc4ff">agent core — internal/agent</text>
+    <text x="600" y="212" text-anchor="middle" font-size="14" fill="#9b93c6">6 roles · swarm orchestrator (plan → parallel work → review → synthesis) · readable message bus</text>
+  </g>
+
+  <g stroke="#3b4256" stroke-width="1.6" marker-end="url(#ah)" fill="none">
+    <line x1="250" y1="224" x2="250" y2="264"/>
+    <line x1="600" y1="224" x2="600" y2="264"/>
+    <line x1="950" y1="224" x2="950" y2="264"/>
+  </g>
+
+  <!-- row 3: services -->
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <g>
+      <rect x="110" y="268" width="280" height="58" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="250" y="294" text-anchor="middle" font-size="19" font-weight="600" fill="#e7e9f0">LLM router</text>
+      <text x="250" y="316" text-anchor="middle" font-size="13" fill="#8b93a7">Ollama · OpenAI-compatible · budgeting</text>
+    </g>
+    <g>
+      <rect x="460" y="268" width="280" height="58" rx="12" fill="#171226" stroke="#5b4090"/>
+      <text x="600" y="294" text-anchor="middle" font-size="19" font-weight="600" fill="#d9ccff">verify pipeline</text>
+      <text x="600" y="316" text-anchor="middle" font-size="14" fill="#a795d6">fast → semantic → judge → escalate</text>
+    </g>
+    <g>
+      <rect x="810" y="268" width="280" height="58" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="950" y="294" text-anchor="middle" font-size="19" font-weight="600" fill="#e7e9f0">session store</text>
+      <text x="950" y="316" text-anchor="middle" font-size="13" fill="#8b93a7">readable JSON · export md/json</text>
+    </g>
+  </g>
+
+  <g stroke="#3b4256" stroke-width="1.6" marker-end="url(#ah)" fill="none">
+    <line x1="250" y1="326" x2="250" y2="368"/>
+    <line x1="600" y1="326" x2="600" y2="368"/>
+  </g>
+
+  <!-- row 4: local data -->
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <g>
+      <rect x="110" y="372" width="280" height="58" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="250" y="398" text-anchor="middle" font-size="19" font-weight="600" fill="#e7e9f0">attachments</text>
+      <text x="250" y="420" text-anchor="middle" font-size="13" fill="#8b93a7">local files, read client-side in the browser</text>
+    </g>
+    <g>
+      <rect x="460" y="372" width="280" height="58" rx="12" fill="#12151f" stroke="#232838"/>
+      <text x="600" y="398" text-anchor="middle" font-size="19" font-weight="600" fill="#e7e9f0">local retrieval</text>
+      <text x="600" y="420" text-anchor="middle" font-size="13" fill="#8b93a7">chunk · embed · cosine · citations</text>
+    </g>
+  </g>
+
+  <!-- ollama runtime chip -->
+  <g font-family="Segoe UI, Inter, system-ui, sans-serif">
+    <rect x="130" y="452" width="590" height="40" rx="20" fill="none" stroke="#2b3145" stroke-dasharray="6 5"/>
+    <text x="425" y="477" text-anchor="middle" font-size="16" fill="#7d8598">runs against your local Ollama — localhost:11434 · your models never leave the machine</text>
+  </g>
+</svg>

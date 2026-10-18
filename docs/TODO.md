@@ -3,6 +3,22 @@
 This file tracks what has shipped and what is planned. Completed items are
 kept so contributors can see the direction of travel.
 
+## ✅ Shipped — repo overview refresh
+
+- [x] Real screenshots of the web GUI (captured from a live local run against
+      `llama3.1:8b`): the offline UI, a verified code answer (✓ verified · 97%),
+      a swarm goal + synthesis, and the agent bus transcript
+- [x] Three SVG diagrams drawn from the real architecture: hero banner,
+      architecture stack, swarm flow, 4-layer verification
+- [x] `assets/social-preview.png` (1280×640) ready for the GitHub "Social
+      preview" upload (web UI only — no API for it)
+- [x] README restructured as an SEO landing page: keyword-rich headings, alt
+      text on every image, comparison table, install matrix, docs table
+- [x] Truth fixes: binary size is ~9 MB shipped (`-s -w`), not "~14 MB";
+      `go install github.com/Ritiksuman07/Vajra@latest` verified working; the
+      keyword footer no longer claims MCP/Model Context Protocol (that
+      scaffolding was removed in v1.1.0)
+
 ## ✅ Shipped — v1.2.0 (swarm)
 
 - [x] Swarm orchestrator: plan → **parallel** work round → peer review →
